@@ -1,6 +1,6 @@
 export enum EStatus {
   ACTIVE = 'ACTIVE',
-  REVOKED = 'revoked',
+  REVOKED = 'REVOKED',
   INACTIVE = 'INACTIVE',
   DELETED = 'DELETED',
 }

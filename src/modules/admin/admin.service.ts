@@ -28,7 +28,7 @@ export class AdminService {
       const newUser = await this.adminModel.save({
         ...addAdminDto,
         password: hashedPw,
-        role: ERole.ADMIN,
+        role: ERole.SUPER_ADMIN,
       });
       return plainToClass(AdminResponseDto, newUser.toObject());
     } catch (error) {

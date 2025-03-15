@@ -2,27 +2,21 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { ERole } from '../enums/auth.enum';
 
-export type OrganizationDocument = Organization & Document;
+export type AdminDocument = Admin & Document;
 
 @Schema({
-  collection: 'Organizations',
+  collection: 'Admins',
   timestamps: true,
 })
-export class Organization {
-  @Prop({ required: false, type: String })
-  logo?: string;
-
-  @Prop({ type: String, required: true })
-  fullName: string;
+export class Admin {
+  @Prop({ type: String, required: false, unique: true })
+  userName?: string;
 
   @Prop({ type: String, required: true, unique: true })
   email: string;
 
   @Prop({ type: String, required: false, unique: true })
   phone?: string;
-
-  @Prop({ type: String, required: true, unique: true })
-  subdomain: string;
 
   @Prop({ type: String, required: true })
   password: string;
@@ -31,4 +25,4 @@ export class Organization {
   role: ERole;
 }
 
-export const OrganizationSchema = SchemaFactory.createForClass(Organization);
+export const AdminSchema = SchemaFactory.createForClass(Admin);

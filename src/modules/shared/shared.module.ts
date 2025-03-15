@@ -7,7 +7,7 @@ import { PassportModule } from '@nestjs/passport';
 import configs from '../../config';
 import models from './models';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { User, UserSchema } from './schemas/user.schema';
+import { User, UserSchema } from './schemas/admin.schema';
 import { Organization, OrganizationSchema } from './schemas/organization.schema';
 import { Otp, OtpSchema } from './schemas/otp.schema';
 import { Certificate, CertificateSchema } from './schemas/certificate.schema';

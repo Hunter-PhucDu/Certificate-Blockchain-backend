@@ -16,7 +16,7 @@ import { AdminService } from './admin.service';
 
 @Controller('admins')
 @ApiTags('Admins')
-@Roles([ERole.ADMIN])
+@Roles([ERole.SUPER_ADMIN])
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AdminController {
@@ -65,7 +65,7 @@ export class AdminController {
   })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles([ERole.ADMIN])
+  @Roles([ERole.SUPER_ADMIN])
   async forgotPasswordAdmin(@Body() forgotPasswordDto: ForgotPasswordAdminDto): Promise<void> {
     return this.adminService.forgotPassword(forgotPasswordDto);
   }

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { UserModel } from 'modules/shared/models/user.model';
+import { UserModel } from 'modules/shared/models/superAdmin.model';
 import { ConfigService } from '@nestjs/config';
 import { OtpModel } from 'modules/shared/models/otp.model';
 import eConfirmationSignUp from 'modules/shared/utils/eConfirmationSignUp';

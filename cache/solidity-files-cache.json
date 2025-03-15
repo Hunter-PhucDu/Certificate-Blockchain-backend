@@ -1,0 +1,41 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "C:\\Users\\hunte\\Desktop\\Đồ án tốt nghiệp\\Certificate-Blockchain-backend\\contracts\\CertificateStorage.sol": {
+      "lastModificationDate": 1741975159244,
+      "contentHash": "d0d88b38c5c9cb421a8bfca6c5e6e638",
+      "sourceName": "contracts/CertificateStorage.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "CertificateStorage"
+      ]
+    }
+  }
+}

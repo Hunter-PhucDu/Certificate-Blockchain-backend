@@ -5,7 +5,7 @@ import { ListRecordSuccessResponseDto } from '../../modules/shared/dtos/list-rec
 import { MetadataResponseDto } from '../../modules/shared/dtos/metadata-response.dto';
 import { ERole } from '../../modules/shared/enums/auth.enum';
 import { IJwtPayload } from '../../modules/shared/interfaces/auth.interface';
-import { UserModel } from '../../modules/shared/models/user.model';
+import { UserModel } from '../shared/models/superAdmin.model';
 import { getPagination } from '../../modules/shared/utils/get-pagination';
 import {
   AddUserRequestDto,

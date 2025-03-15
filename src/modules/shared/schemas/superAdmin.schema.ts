@@ -1,30 +1,25 @@
-// import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-// import { Document } from 'mongoose';
-// import mongoosePaginate from 'mongoose-paginate-v2';
-// import { ERole } from '../enums/auth.enum';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+import { ERole } from '../enums/auth.enum';
 
-// export type AdminDocument = Admin & Document;
+export type SuperAdminDocument = SuperAdmin & Document;
 
-// @Schema({
-//   collection: 'Admins',
-//   timestamps: {
-//     createdAt: 'createdAt',
-//     updatedAt: 'updatedAt',
-//   },
-// })
-// export class Admin {
-//   @Prop({ required: true, type: String })
-//   userName: string;
+@Schema({
+  collection: 'SuperAdmins',
+  timestamps: true,
+})
+export class SuperAdmin {
+  @Prop({ type: String, required: true, unique: true })
+  userName: string;
 
-//   @Prop({ type: String, required: true, unique: true })
-//   email: string;
+  @Prop({ type: String, required: false, unique: true })
+  email?: string;
 
-//   @Prop({ required: true, type: String })
-//   password: string;
+  @Prop({ type: String, required: true })
+  password: string;
 
-//   @Prop({ required: true, type: String })
-//   role: ERole;
-// }
+  @Prop({ type: String, required: true, enum: ERole })
+  role: ERole;
+}
 
-// export const AdminSchema = SchemaFactory.createForClass(Admin);
-// AdminSchema.plugin(mongoosePaginate);
+export const SuperAdminSchema = SchemaFactory.createForClass(SuperAdmin);

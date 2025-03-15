@@ -1,36 +1,43 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { ForgotPasswordDto, LoginRequestDto, RefreshTokenRequestDto } from './dtos/request.dto';
+import {
+  ForgotPasswordDto,
+  LoginRequestDto,
+  RefreshTokenRequestDto,
+  SuperAdminLoginRequestDto,
+} from './dtos/request.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { UserModel } from 'modules/shared/models/user.model';
 import { AdminModel } from 'modules/shared/models/admin.model';
 import { ConfigService } from '@nestjs/config';
 import { ERole } from 'modules/shared/enums/auth.enum';
 import { OtpModel } from 'modules/shared/models/otp.model';
 import { LoginResponseDto } from './dtos/response.dto';
+import { SuperAdminModel } from 'modules/shared/models/superAdmin.model';
+import { OrganizationModel } from 'modules/shared/models/organization.model';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly userModel: UserModel,
+    private readonly superAdminModel: SuperAdminModel,
     private readonly adminModel: AdminModel,
+    private readonly organizationModel: OrganizationModel,
     private readonly configService: ConfigService,
     private readonly otpModel: OtpModel,
   ) {}
 
   async onModuleInit() {
-    const countAdmins = await this.adminModel.model.countDocuments();
+    const countSuperAdmins = await this.superAdminModel.model.countDocuments();
 
-    if (countAdmins <= 0) {
+    if (countSuperAdmins <= 0) {
       const password = this.configService.get('admin.password');
-      const createdAdmin = new this.adminModel.model({
+      const createdSuperAdmin = new this.superAdminModel.model({
         userName: this.configService.get('admin.username'),
         password: await this.hashPassword(password),
-        role: ERole.ADMIN,
+        role: ERole.SUPER_ADMIN,
       });
 
-      await createdAdmin.save();
+      await createdSuperAdmin.save();
     }
   }
 
@@ -52,7 +59,7 @@ export class AuthService {
 
   async refreshToken(refreshTokenDto: RefreshTokenRequestDto): Promise<string> {
     const { refreshToken } = refreshTokenDto;
-    const user = await this.userModel.model.findOne({ refreshToken });
+    const user = await this.superAdminModel.model.findOne({ refreshToken });
 
     if (!user) {
       throw new UnauthorizedException('Not authenticated');
@@ -73,62 +80,86 @@ export class AuthService {
     return await bcrypt.compare(password, hashedPassword);
   }
 
-  async loginUser(loginDto: LoginRequestDto): Promise<LoginResponseDto> {
-    const userToken = await this._userLogin(loginDto);
-    if (userToken)
+  async loginSuperAdmin(loginDto: LoginRequestDto): Promise<LoginResponseDto> {
+    const superAdminToken = await this._superAdminLogin(loginDto);
+    if (superAdminToken)
       return {
-        accessToken: userToken.accessToken,
-        refreshToken: userToken.refreshToken,
-        avatarUrl: userToken.avatarUrl,
+        accessToken: superAdminToken.accessToken,
+        refreshToken: superAdminToken.refreshToken,
       };
 
     throw new BadRequestException('Username or password is incorrect.');
   }
 
-  async loginAdmin(loginDto: LoginRequestDto): Promise<{ accessToken: string; refreshToken: string }> {
+  async loginAdmin(loginDto: LoginRequestDto): Promise<LoginResponseDto> {
     const adminToken = await this._adminLogin(loginDto);
     if (adminToken) return { accessToken: adminToken.accessToken, refreshToken: adminToken.refreshToken };
 
     throw new BadRequestException('Username or password is incorrect.');
   }
 
-  async _userLogin(
-    loginDto: LoginRequestDto,
-  ): Promise<{ accessToken: string; refreshToken: string; avatarUrl: string }> {
-    const user = await this.userModel.model.findOne({
+  async loginOrganization(loginDto: LoginRequestDto): Promise<{ accessToken: string; refreshToken: string }> {
+    const organizationToken = await this._organizationLogin(loginDto);
+    if (organizationToken)
+      return { accessToken: organizationToken.accessToken, refreshToken: organizationToken.refreshToken };
+
+    throw new BadRequestException('Username or password is incorrect.');
+  }
+
+  async _superAdminLogin(loginDto: SuperAdminLoginRequestDto): Promise<LoginResponseDto> {
+    const superAdmin = await this.superAdminModel.model.findOne({
       $or: [{ userName: loginDto.userName }, { email: loginDto.userName }],
     });
-    if (!user) return null;
+    if (!superAdmin) return null;
 
-    const checkPw = await this.checkPassword(loginDto.password, user.password);
+    const checkPw = await this.checkPassword(loginDto.password, superAdmin.password);
     if (!checkPw) return null;
 
-    let avatarUrl = '';
+    const tokens = await this.generateTokens(superAdmin._id.toString(), superAdmin.userName, superAdmin.role);
 
-    const tokens = await this.generateTokens(user._id.toString(), user.userName, user.role);
-    if (!user.avatar) {
-      avatarUrl = 'https://i.imgur.com/Uoeie1w.jpg';
-    } else {
-      avatarUrl = `${this.configService.get('BASE_URL')}/images/${user.avatar}`;
-    }
-
-    return { ...tokens, avatarUrl };
+    return { ...tokens };
   }
 
   async _adminLogin(loginDto: LoginRequestDto): Promise<{ accessToken: string; refreshToken: string }> {
     const { userName, password } = loginDto;
-    const adminDoc = await this.adminModel.model.findOne({ userName: userName });
+    const adminDoc = await this.adminModel.model.findOne({
+      $or: [{ email: userName }, { userName: userName }],
+    });
     if (!adminDoc) return null;
 
     const checkPw = await this.checkPassword(password, adminDoc.password);
     if (!checkPw) return null;
 
-    const tokens = await this.generateTokens(adminDoc._id, userName, adminDoc.role);
+    if (adminDoc.userName) {
+      const tokens = await this.generateTokens(adminDoc._id, adminDoc.userName, adminDoc.role);
+      return tokens;
+    }
+
+    const tokens = await this.generateTokens(adminDoc._id, adminDoc.email, adminDoc.role);
     return tokens;
   }
 
+  async _organizationLogin(loginDto: LoginRequestDto): Promise<{ accessToken: string; refreshToken: string }> {
+    const organizationDoc = await this.organizationModel.model.findOne({ userName: loginDto.userName });
+    if (!organizationDoc) return null;
+
+    const checkPw = await this.checkPassword(loginDto.password, organizationDoc.password);
+    if (!checkPw) return null;
+
+    let logoUrl = '';
+
+    if (!organizationDoc.logo) {
+      logoUrl = 'https://i.imgur.com/Uoeie1w.jpg';
+    } else {
+      logoUrl = `${this.configService.get('BASE_URL')}/images/${organizationDoc.logo}`;
+    }
+
+    const tokens = await this.generateTokens(organizationDoc._id, loginDto.userName, organizationDoc.role);
+    return { ...tokens, logoUrl };
+  }
+
   async forgotPassword(forgotPwDto: ForgotPasswordDto): Promise<void> {
-    const user = await this.userModel.model.findOne({ email: forgotPwDto.email });
+    const user = await this.superAdminModel.model.findOne({ email: forgotPwDto.email });
 
     if (!user) {
       throw new BadRequestException('User not found.');
@@ -141,7 +172,7 @@ export class AuthService {
     }
 
     const hashedPw = await this.hashPassword(forgotPwDto.newPassword);
-    await this.userModel.model.findOneAndUpdate({ _id: user._id }, { password: hashedPw }, { new: true });
+    await this.superAdminModel.model.findOneAndUpdate({ _id: user._id }, { password: hashedPw }, { new: true });
 
     await this.otpModel.model.deleteOne({ _id: otpDoc._id });
   }

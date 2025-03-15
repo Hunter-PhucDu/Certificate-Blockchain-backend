@@ -4,7 +4,6 @@ import { AdminModule } from 'modules/admin/admin.module';
 import { AuthModule } from 'modules/auth/auth.module';
 import { EmailModule } from 'modules/email/email.module';
 import { SharedModule } from 'modules/shared/shared.module';
-import { UserModule } from 'modules/user/user.module';
 import { OrganizationModule } from 'modules/organization/organization.module';
 import { CertificateModule } from 'modules/certificate/certificate.module';
 import { BlockchainModule } from 'modules/blockchain/blockchain.module';
@@ -15,7 +14,7 @@ import { join } from 'path';
     SharedModule,
     AuthModule,
     AdminModule,
-    UserModule,
+    AdminModule,
     EmailModule,
     OrganizationModule,
     CertificateModule,

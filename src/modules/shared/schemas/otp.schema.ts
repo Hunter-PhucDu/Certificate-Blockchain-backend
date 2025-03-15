@@ -16,7 +16,7 @@ export type OtpDocument = Otp & Document;
 })
 export class Otp extends Document {
   @Prop({ required: true, type: Types.ObjectId })
-  userId: Types.ObjectId;
+  accountId: Types.ObjectId;
 
   @Prop({ required: true })
   otp: string;

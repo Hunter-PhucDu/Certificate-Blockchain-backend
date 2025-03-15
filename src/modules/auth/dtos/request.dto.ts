@@ -9,8 +9,36 @@ export class LoginRequestDto {
   @ApiProperty({
     type: String,
     required: true,
-    description: 'email or phone number',
     example: 'abc@gmail.com',
+  })
+  @Transform(({ value }) => value?.trim())
+  @IsString()
+  @IsNotEmpty()
+  userName: string;
+
+  @Expose()
+  @ApiProperty({
+    type: String,
+    required: true,
+    example: '******',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
+  @MinLength(6, {
+    message: 'Password is too short. Minimum length is 6 characters.',
+  })
+  password: string;
+}
+
+@Exclude()
+export class SuperAdminLoginRequestDto {
+  @Expose()
+  @ApiProperty({
+    type: String,
+    required: true,
+    description: 'username or email',
+    example: 'admin@gmail.com',
   })
   @Transform(({ value }) => value?.trim())
   @IsString()

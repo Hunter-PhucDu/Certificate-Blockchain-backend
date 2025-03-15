@@ -16,28 +16,13 @@ export class LoginResponseDto {
     example: '0x123...',
   })
   refreshToken: string;
-
-  @ApiProperty({
-    type: String,
-    required: true,
-    example: '0x123...',
-  })
-  avatarUrl: string;
 }
 
 @Exclude()
-export class AdminLoginResponseDto {
+export class OrganizationLoginResponseDto extends LoginResponseDto {
   @ApiProperty({
     type: String,
-    required: true,
-    example: '0x123...',
+    example: 'https://i.imgur.com/Uoeie1w.jpg',
   })
-  accessToken: string;
-
-  @ApiProperty({
-    type: String,
-    required: true,
-    example: '0x123...',
-  })
-  refreshToken: string;
+  logoUrl?: string;
 }
