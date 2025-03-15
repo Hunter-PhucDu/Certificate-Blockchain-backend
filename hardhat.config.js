@@ -28,7 +28,7 @@ module.exports = {
   networks: {
     hardhat: {},
     myQuickNode: {
-      url: 'https://spring-palpable-sailboat.ethereum-sepolia.quiknode.pro/66aa95bab0609eaf7711db0c5024bcd06e0e9a2b/',
+      url: process.env.BLOCKCHAIN_MYQUICKNODE_URL,
       accounts: [process.env.BLOCKCHAIN_PRIVATE_KEY],
     },
     sepolia: {
