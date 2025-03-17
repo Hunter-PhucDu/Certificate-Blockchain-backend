@@ -12,8 +12,8 @@ export class OrganizationModel {
     return organization.save();
   }
 
-  async findBySubdomain(subdomain: string) {
-    return this.model.findOne({ subdomain }).exec();
+  async findBySubdomain(subdomain: string): Promise<any> {
+    return this.model.findOne({ subdomain, active: true }).exec();
   }
 
   async findById(id: string) {

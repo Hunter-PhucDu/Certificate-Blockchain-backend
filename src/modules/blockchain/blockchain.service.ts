@@ -15,22 +15,21 @@ export class BlockchainService implements OnModuleInit {
     try {
       this.web3 = new Web3(this.configService.get<string>('BLOCKCHAIN_RPC_URL'));
 
-      // Khởi tạo contract instance
       this.contract = new this.web3.eth.Contract(
         CertificateContractABI,
         this.configService.get<string>('BLOCKCHAIN_CONTRACT_ADDRESS'),
       );
 
-      // Set up account từ private key
       const privateKey = this.configService.get<string>('BLOCKCHAIN_PRIVATE_KEY');
       if (!privateKey) {
         throw new Error('Blockchain private key not configured');
       }
 
-      const account = this.web3.eth.accounts.privateKeyToAccount(privateKey);
+      const formattedPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+
+      const account = this.web3.eth.accounts.privateKeyToAccount(formattedPrivateKey);
       this.web3.eth.accounts.wallet.add(account);
 
-      // Kiểm tra kết nối
       await this.web3.eth.net.isListening();
     } catch (error) {
       throw new Error(`Blockchain initialization failed: ${error.message}`);
@@ -43,13 +42,11 @@ export class BlockchainService implements OnModuleInit {
         throw new Error('Blockchain service not properly initialized');
       }
 
-      // Hash dữ liệu certificate
       const certificateHash = this.web3.utils.sha3(JSON.stringify(data));
       if (!certificateHash) {
         throw new Error('Failed to generate certificate hash');
       }
 
-      // Tạo transaction
       const tx = await this.contract.methods.storeCertificate(certificateHash).send({
         from: this.web3.eth.accounts.wallet[0].address,
         gas: '500000',
@@ -74,18 +71,15 @@ export class BlockchainService implements OnModuleInit {
         throw new Error('Blockchain service not properly initialized');
       }
 
-      // Lấy transaction receipt
       const receipt = await this.web3.eth.getTransactionReceipt(transactionHash);
       if (!receipt) {
         throw new Error('Transaction receipt not found');
       }
 
-      // Kiểm tra block number
       if (receipt.blockNumber.toString() !== blockId) {
         return false;
       }
 
-      // Kiểm tra status của transaction (1 = success, 0 = failure)
       return Number(receipt.status) === 1;
     } catch (error) {
       throw new BadRequestException(`Verification error: ${error.message}`);

@@ -1,8 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose, Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { PaginationDto } from '../../shared/dtos/pagination.dto';
-import { EStatus } from '../../shared/enums/status.enum';
 
 export class CertificateFieldDto {
   @ApiProperty({ example: 'Upon' })
@@ -71,12 +70,6 @@ export class GetCertificatesRequestDto extends PaginationDto {
   @IsOptional()
   @IsString()
   search?: string;
-
-  @Expose()
-  @ApiProperty({ enum: EStatus, required: false })
-  @IsEnum(EStatus)
-  @IsOptional()
-  status?: EStatus;
 }
 
 @Exclude()

@@ -4,4 +4,4 @@ import { SuperAdminModel } from './superAdmin.model';
 import { CertificateModel } from './certificate.model';
 import { OrganizationModel } from './organization.model';
 
-export default [AdminModel, SuperAdminModel, CertificateModel, OrganizationModel, OtpModel];
+export default [SuperAdminModel, AdminModel, CertificateModel, OrganizationModel, OtpModel];

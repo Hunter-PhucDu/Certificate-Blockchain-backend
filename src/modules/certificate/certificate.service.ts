@@ -68,15 +68,11 @@ export class CertificateService {
     organizationId: string,
   ): Promise<{ items: CertificateResponseDto[]; total: number }> {
     try {
-      const { page = 1, search, status } = query;
+      const { page = 1, search } = query;
       const limit = 10;
       const skip = (page - 1) * limit;
 
       const filter: any = { organizationId };
-
-      if (status) {
-        filter.status = status;
-      }
 
       if (search) {
         filter['$or'] = [

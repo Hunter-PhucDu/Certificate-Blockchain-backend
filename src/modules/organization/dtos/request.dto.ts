@@ -4,7 +4,7 @@ import { IsEmail, IsNotEmpty, IsObject, IsOptional, IsString } from 'class-valid
 import { PaginationDto } from '../../shared/dtos/pagination.dto';
 
 @Exclude()
-export class CreateOrganizationDto {
+export class OrganizationRequestDto {
   @Expose()
   @ApiProperty({
     required: true,
@@ -12,7 +12,7 @@ export class CreateOrganizationDto {
   })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  organizationName: string;
 
   @Expose()
   @ApiProperty({
@@ -49,7 +49,12 @@ export class CreateOrganizationDto {
 }
 
 @Exclude()
-export class UpdateOrganizationDto extends CreateOrganizationDto {
+export class UpdateOrganizationRequestDto {
+  @Expose()
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @IsOptional()
+  logo?: Express.Multer.File;
+
   @Expose()
   @ApiProperty({
     required: false,
@@ -57,16 +62,7 @@ export class UpdateOrganizationDto extends CreateOrganizationDto {
   })
   @IsString()
   @IsOptional()
-  name?: string;
-
-  @Expose()
-  @ApiProperty({
-    required: false,
-    example: 'new-subdomain',
-  })
-  @IsString()
-  @IsOptional()
-  subdomain?: string;
+  organizationName?: string;
 
   @Expose()
   @ApiProperty({
