@@ -5,23 +5,40 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from 'app.module';
 import { HttpExceptionFilter } from 'modules/shared/filters/http-exception.filter';
 import { ResponseTransformInterceptor } from 'modules/shared/interceptors/response.interceptor';
+import { TenantInterceptor } from 'modules/shared/interceptors/tenant.interceptor';
 import { join } from 'path';
+import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   app.setGlobalPrefix(configService.get('app.prefix'));
+
+  // Cải tiến CORS để hỗ trợ wildcard subdomain tốt hơn
   app.enableCors({
-    origin: [/.*\.yourdomain\.com$/, 'http://localhost:3000'],
+    origin: [
+      // new RegExp(`^https?:\\/\\/([a-zA-Z0-9-]+\\.)?${configService.get('app.domain').replace('.', '\\.')}$`),
+      // 'http://localhost:3000',
+      /.*\.yourdomain\.com$/,
+      'http://localhost:3000',
+    ],
     credentials: true,
   });
+
+  // Thêm helmet để tăng cường bảo mật
+  app.use(helmet());
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
+      whitelist: true, // Loại bỏ các trường không được khai báo trong DTO
+      forbidNonWhitelisted: true, // Báo lỗi nếu có trường không được khai báo
     }),
   );
-  app.useGlobalInterceptors(new ResponseTransformInterceptor());
+
+  // Thêm TenantInterceptor để đảm bảo dữ liệu được lọc theo tenant
+  app.useGlobalInterceptors(new ResponseTransformInterceptor(), new TenantInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // Cấu hình để phục vụ các tệp tĩnh từ thư mục 'images'
