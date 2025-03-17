@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
-import { EStatus } from '../../shared/enums/status.enum';
 
 @Exclude()
 export class CertificateResponseDto {
@@ -32,11 +31,7 @@ export class CertificateResponseDto {
       Grade: 'Excellent',
     },
   })
-  customData: Record<string, any>;
-
-  @Expose()
-  @ApiProperty({ enum: EStatus, example: EStatus.ACTIVE })
-  status: EStatus;
+  certificateData: Record<string, any>;
 
   @Expose()
   @ApiProperty({ example: '2024-03-14T10:30:00.000Z' })

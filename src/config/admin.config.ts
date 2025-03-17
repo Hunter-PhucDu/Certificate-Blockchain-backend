@@ -2,7 +2,7 @@
 require('dotenv').config();
 import { registerAs } from '@nestjs/config';
 
-export default registerAs('admin', () => ({
-  username: process.env.ADMIN_USERNAME || 'admin',
-  password: process.env.ADMIN_PASSWORD || 'admin123',
+export default registerAs('superAdmin', () => ({
+  username: process.env.SUPER_ADMIN_USERNAME || 'admin',
+  password: process.env.SUPER_ADMIN_PASSWORD || 'admin123',
 }));

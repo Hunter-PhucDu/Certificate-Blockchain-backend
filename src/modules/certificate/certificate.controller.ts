@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nest
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import {
-  AddCertificateRequestDto,
+  CertificateRequestDto,
   GetCertificatesRequestDto,
   UpdateCertificateDto,
   ValidateCertificateDto,
@@ -29,7 +29,7 @@ export class CertificateController {
   @ApiOperation({ summary: 'Create new certificate' })
   @ApiSuccessResponse({ dataType: CertificateResponseDto })
   async createCertificate(
-    @Body() createDto: AddCertificateRequestDto,
+    @Body() createDto: CertificateRequestDto,
     @Organization() organizationId: string,
   ): Promise<CertificateResponseDto> {
     return this.certificateService.createCertificate(createDto, organizationId);
@@ -74,6 +74,6 @@ export class CertificateController {
   async validateCertificate(
     @Body() validateDto: ValidateCertificateDto,
   ): Promise<{ isValid: boolean; certificateData?: CertificateResponseDto }> {
-    return this.certificateService.validateCertificate(validateDto.serialNumber);
+    return this.certificateService.validateCertificate(validateDto);
   }
 }

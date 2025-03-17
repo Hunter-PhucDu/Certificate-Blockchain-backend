@@ -24,23 +24,27 @@ export class Certificate {
   @Prop({ type: Date, required: true })
   issuedDate: Date;
 
-  @Prop({ type: [{ key: String, value: MongooseSchema.Types.Mixed }], default: [] })
-  customData: { key: string; value: any }[];
+  @Prop({ type: String, required: true })
+  certificateType: string;
+
+  @Prop({ type: [String], required: true, default: [] })
+  uniqueFields: string[];
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
-  customDataMap: Record<string, any>;
+  certificateData: Record<string, any>;
 }
 
 export const CertificateSchema = SchemaFactory.createForClass(Certificate);
+
 CertificateSchema.plugin(mongoosePaginate);
 
 CertificateSchema.pre<CertificateDocument>('save', function (next) {
   const doc = this as CertificateDocument;
-  doc.customDataMap = {};
 
-  doc.customData.forEach(({ key, value }) => {
-    doc.customDataMap[key] = value;
-  });
+  if (!doc.issuedDate) {
+    doc.issuedDate = new Date();
+    doc.issuedDate.setHours(0, 0, 0, 0);
+  }
 
   next();
 });

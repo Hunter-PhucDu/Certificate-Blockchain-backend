@@ -2,18 +2,21 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { ERole } from '../enums/auth.enum';
 
-export type SuperAdminDocument = SuperAdmin & Document;
+export type AdminDocument = Admin & Document;
 
 @Schema({
-  collection: 'SuperAdmins',
+  collection: 'Admins',
   timestamps: true,
 })
-export class SuperAdmin {
+export class Admin {
+  @Prop({ type: String, required: false, unique: true })
+  userName?: string;
+
   @Prop({ type: String, required: true, unique: true })
-  userName: string;
+  email: string;
 
   @Prop({ type: String, required: false, unique: true })
-  email?: string;
+  phone?: string;
 
   @Prop({ type: String, required: true })
   password: string;
@@ -22,4 +25,4 @@ export class SuperAdmin {
   role: ERole;
 }
 
-export const SuperAdminSchema = SchemaFactory.createForClass(SuperAdmin);
+export const AdminSchema = SchemaFactory.createForClass(Admin);

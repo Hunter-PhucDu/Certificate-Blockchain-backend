@@ -7,10 +7,11 @@ import { PassportModule } from '@nestjs/passport';
 import configs from '../../config';
 import models from './models';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { User, UserSchema } from './schemas/user.schema';
 import { Organization, OrganizationSchema } from './schemas/organization.schema';
 import { Otp, OtpSchema } from './schemas/otp.schema';
 import { Certificate, CertificateSchema } from './schemas/certificate.schema';
+import { SuperAdmin, SuperAdminSchema } from './schemas/superAdmin.schema';
+import { Admin, AdminSchema } from './schemas/admin.schema';
 
 @Module({
   imports: [
@@ -37,7 +38,8 @@ import { Certificate, CertificateSchema } from './schemas/certificate.schema';
       inject: [ConfigService],
     }),
     MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
+      { name: SuperAdmin.name, schema: SuperAdminSchema },
+      { name: Admin.name, schema: AdminSchema },
       { name: Organization.name, schema: OrganizationSchema },
       { name: Otp.name, schema: OtpSchema },
       { name: Certificate.name, schema: CertificateSchema },

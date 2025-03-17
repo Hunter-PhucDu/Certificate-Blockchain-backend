@@ -9,7 +9,7 @@ export class OrganizationResponseDto {
 
   @Expose()
   @ApiProperty()
-  name: string;
+  organizationName: string;
 
   @Expose()
   @ApiProperty()
@@ -21,11 +21,7 @@ export class OrganizationResponseDto {
 
   @Expose()
   @ApiProperty()
-  customFields?: Record<string, any>;
-
-  @Expose()
-  @ApiProperty()
-  logo?: string;
+  logo: string;
 
   @Expose()
   @ApiProperty()
