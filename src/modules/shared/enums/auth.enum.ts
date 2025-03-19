@@ -1,5 +1,5 @@
 export enum ERole {
-  SUPER_ADMIN = 'SuperAdmin',
-  ADMIN = 'Admin',
-  ORGANIZATION = 'Organization',
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  ORGANIZATION = 'ORGANIZATION',
 }

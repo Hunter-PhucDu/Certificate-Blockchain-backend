@@ -2,7 +2,6 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';
 import { OtpModel } from 'modules/shared/models/otp.model';
-
 import * as crypto from 'crypto';
 import { Types } from 'mongoose';
 import { ERole } from 'modules/shared/enums/auth.enum';
@@ -16,7 +15,6 @@ export class EmailService {
     private readonly otpModel: OtpModel,
   ) {}
 
-  // Template helpers
   private getEmailTemplate(templateType: string, data: any): string {
     const templates = {
       organizationInvite: `
@@ -107,12 +105,30 @@ export class EmailService {
           </div>
         </div>
       `,
+
+      newPasswordReset: `
+       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e4; border-radius: 5px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="${this.configService.get('app.logo')}" alt="Logo" style="max-height: 60px;">
+        </div>
+        <h2 style="color: #333; text-align: center;">Password Reset Notification</h2>
+        <p>Hello,</p>
+        <p>An administrator has reset your password for you. Below is your new password:</p>
+        <p style="font-weight: bold; color: #007bff;">New Password: ${data.newPassword}</p>
+        <p>For security reasons, we recommend that you log in and change your password to something more memorable.</p>
+        <p>If you did not request a password reset, please contact your administrator or ignore this email.</p>
+        <p>Best regards,</p>
+        <p>The Certificate Management System Team</p>
+        <div style="font-size: 12px; color: #666; margin-top: 30px; text-align: center; border-top: 1px solid #e4e4e4; padding-top: 10px;">
+          This is an automated email. Please do not reply to this message.
+        </div>
+      </div>
+    `,
     };
 
     return templates[templateType] || '';
   }
 
-  // Gửi thông tin tài khoản cho tổ chức
   async sendOrganizationCredentials(email: string, subdomain: string, password: string) {
     const domain = this.configService.get('app.domain');
     const url = `https://${subdomain}.${domain}`;
@@ -128,37 +144,31 @@ export class EmailService {
     });
   }
 
-  // Gửi email xác minh với link
   async sendEmailVerification(email: string, accountId: string, accountType: ERole): Promise<string> {
     try {
-      // Tạo token xác minh
       const token = crypto.randomBytes(32).toString('hex');
 
-      // Tính thời gian hết hạn (24 giờ)
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
+      expiresAt.setHours(expiresAt.getHours() + 1);
 
-      // Lưu token vào database
       await this.otpModel.model.create({
         accountId,
         accountType,
         verificationToken: token,
-        otp: '', // Không cần OTP cho loại xác minh này
+        otp: '',
         expiresAt,
         type: OtpType.EMAIL_VERIFICATION,
       });
 
-      // Tạo URL xác minh
       const baseUrl = this.configService.get('app.baseUrl');
       const verifyUrl = `${baseUrl}/auth/verify-email?token=${token}`;
 
-      // Gửi email
       await this.mailerService.sendMail({
         to: email,
         subject: 'Verify Your Email Address',
         html: this.getEmailTemplate('emailVerification', {
           verifyUrl,
-          expiryHours: 24,
+          expiryHours: 1,
         }),
       });
 
@@ -168,7 +178,6 @@ export class EmailService {
     }
   }
 
-  // Xác minh email qua token
   async verifyEmail(token: string): Promise<boolean> {
     try {
       const verification = await this.otpModel.model.findOne({
@@ -182,7 +191,6 @@ export class EmailService {
         return false;
       }
 
-      // Đánh dấu đã sử dụng
       await this.otpModel.model.updateOne({ _id: verification._id }, { isUsed: true });
 
       return true;
@@ -191,31 +199,23 @@ export class EmailService {
     }
   }
 
-  // Gửi link đặt lại mật khẩu
-  async sendPasswordResetLink(email: string, accountId: string, accountType: ERole): Promise<string> {
+  async sendPasswordResetLink(email: string, accountId: string, accountType: ERole, token: string): Promise<string> {
     try {
-      // Tạo token đặt lại mật khẩu
-      const token = crypto.randomBytes(32).toString('hex');
-
-      // Tính thời gian hết hạn (1 giờ)
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 1);
 
-      // Lưu token vào database
       await this.otpModel.model.create({
         accountId,
         accountType,
         verificationToken: token,
-        otp: '', // Không cần OTP cho loại xác minh này
+        otp: '',
         expiresAt,
-        type: OtpType.FORGOT_PASSWORD,
+        type: OtpType.RESET_PASSWORD,
       });
 
-      // Tạo URL đặt lại mật khẩu
       const baseUrl = this.configService.get('app.baseUrl');
       const resetUrl = `${baseUrl}/auth/reset-password?token=${token}`;
 
-      // Gửi email
       await this.mailerService.sendMail({
         to: email,
         subject: 'Reset Your Password',
@@ -231,14 +231,27 @@ export class EmailService {
     }
   }
 
-  // Xác minh token đặt lại mật khẩu
+  async sendNewPassword(email: string, newPassword: string): Promise<void> {
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: 'Your password was reset',
+        html: this.getEmailTemplate('newPasswordReset', {
+          newPassword,
+        }),
+      });
+    } catch (error) {
+      throw new BadRequestException(`Error sending password reset email: ${error.message}`);
+    }
+  }
+
   async verifyPasswordResetToken(token: string): Promise<{ valid: boolean; accountId?: string; accountType?: string }> {
     try {
       const verification = await this.otpModel.model.findOne({
         verificationToken: token,
         expiresAt: { $gt: new Date() },
         isUsed: false,
-        type: OtpType.FORGOT_PASSWORD,
+        type: OtpType.RESET_PASSWORD,
       });
 
       if (!verification) {
@@ -255,29 +268,24 @@ export class EmailService {
     }
   }
 
-  // Tạo và gửi OTP
   async generateAndSendOtp(
     email: string,
     accountId: string | Types.ObjectId,
     accountType: ERole,
-    type: OtpType = OtpType.FORGOT_PASSWORD,
+    type: OtpType,
   ): Promise<void> {
     try {
-      // Tạo OTP 6 số
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-      // Tính thời gian hết hạn (15 phút)
       const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
-      // Xóa OTP cũ cùng loại
       await this.otpModel.model.deleteMany({
         accountId,
         accountType,
         type,
       });
 
-      // Lưu OTP mới vào database
       await this.otpModel.model.create({
         accountId,
         accountType,
@@ -286,13 +294,12 @@ export class EmailService {
         type,
       });
 
-      // Gửi email chứa OTP
       await this.mailerService.sendMail({
         to: email,
         subject: 'Your Verification Code',
         html: this.getEmailTemplate('otpVerification', {
           otp,
-          expiryMinutes: 15,
+          expiryMinutes: 5,
         }),
       });
     } catch (error) {
@@ -300,47 +307,8 @@ export class EmailService {
     }
   }
 
-  // Xác minh OTP
-  async verifyOtp(
-    accountId: string | Types.ObjectId,
-    accountType: ERole,
-    otp: string,
-    type: OtpType = OtpType.FORGOT_PASSWORD,
-  ): Promise<boolean> {
+  async resendOtp(email: string, accountId: string | Types.ObjectId, accountType: ERole, type: OtpType): Promise<void> {
     try {
-      const otpDoc = await this.otpModel.model
-        .findOne({
-          accountId,
-          accountType,
-          otp,
-          type,
-          expiresAt: { $gt: new Date() },
-          isUsed: false,
-        })
-        .lean();
-
-      if (!otpDoc) {
-        return false;
-      }
-
-      // Đánh dấu OTP đã sử dụng
-      await this.otpModel.model.updateOne({ _id: otpDoc._id }, { isUsed: true });
-
-      return true;
-    } catch (error) {
-      throw new BadRequestException(`Error verifying OTP: ${error.message}`);
-    }
-  }
-
-  // Gửi lại OTP
-  async resendOtp(
-    email: string,
-    accountId: string | Types.ObjectId,
-    accountType: ERole,
-    type: OtpType = OtpType.FORGOT_PASSWORD,
-  ): Promise<void> {
-    try {
-      // Tìm OTP gần nhất của cùng loại
       const lastOtp = await this.otpModel.model
         .findOne({
           accountId,
@@ -352,17 +320,12 @@ export class EmailService {
 
       if (lastOtp) {
         const currentTime = new Date();
-
-        // Sử dụng kiểu any để bỏ qua kiểm tra kiểu dữ liệu TypeScript
         const lastCreatedTime = (lastOtp as any).createdAt;
-
-        // const lastCreatedTime = lastOtp.createdAt;
 
         if (lastCreatedTime) {
           const timeDiff = currentTime.getTime() - new Date(lastCreatedTime).getTime();
 
           if (timeDiff < 60000) {
-            // 60000ms = 1 phút
             throw new BadRequestException('Please wait 1 minute before requesting a new verification code');
           }
         }
