@@ -62,18 +62,38 @@ export class AuthService {
       }
 
       if (checkPw) {
-        const accessToken = await this.generateAccessToken(admin._id, admin.email, admin.role);
+        if (admin.loginAttempts > 0) {
+          await this.adminModel.model.updateOne({ _id: admin._id }, { loginAttempts: 0 });
+        }
 
-        const refreshToken = await this.generateRefreshToken(admin._id, admin.email, admin.role);
-        const tokens = { accessToken, refreshToken };
-        return tokens;
+        if (admin.email) {
+          const accessToken = await this.generateAccessToken(admin._id, admin.email, admin.role);
+          const refreshToken = await this.generateRefreshToken(admin._id, admin.email, admin.role);
+          const tokens = { accessToken, refreshToken };
+
+          return tokens;
+        } else {
+          const accessToken = await this.generateAccessToken(admin._id, admin.userName, admin.role);
+          const refreshToken = await this.generateRefreshToken(admin._id, admin.userName, admin.role);
+          const tokens = { accessToken, refreshToken };
+
+          return tokens;
+        }
+      }
+
+      if (admin.loginAttempts < 4) {
+        await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 } });
+
+        throw new BadRequestException(
+          `Password is incorrect. You have \`${4 - admin.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
+        );
       }
 
       if (admin.loginAttempts === 4) {
         await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 }, isLocked: true });
+
         throw new BadRequestException('Account is locked. Please contact the administrator.');
       }
-      await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 } });
     }
 
     throw new BadRequestException('Username or password is incorrect.');
@@ -94,10 +114,22 @@ export class AuthService {
       }
 
       if (checkPw) {
+        if (organization.loginAttempts > 0) {
+          await this.adminModel.model.updateOne({ _id: organization._id }, { loginAttempts: 0 });
+        }
         const accessToken = await this.generateAccessToken(organization._id, organization.email, organization.role);
         const refreshToken = await this.generateRefreshToken(organization._id, organization.email, organization.role);
         const tokens = { accessToken, refreshToken };
+
         return tokens;
+      }
+
+      if (organization.loginAttempts < 4) {
+        await this.adminModel.model.updateOne({ _id: organization._id }, { $inc: { loginAttempts: 1 } });
+
+        throw new BadRequestException(
+          `Username or password is incorrect. You have \`${4 - organization.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
+        );
       }
 
       if (organization.loginAttempts === 4) {
@@ -105,9 +137,9 @@ export class AuthService {
           { _id: organization._id },
           { $inc: { loginAttempts: 1 }, isLocked: true },
         );
+
         throw new BadRequestException('Account is locked. Please contact the administrator.');
       }
-      await this.adminModel.model.updateOne({ _id: organization._id }, { $inc: { loginAttempts: 1 } });
     }
 
     throw new BadRequestException('Username or password is incorrect.');
