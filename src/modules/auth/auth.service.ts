@@ -48,229 +48,283 @@ export class AuthService {
   }
 
   async loginAdmin(loginDto: LoginRequestDto): Promise<LoginResponseDto> {
-    const { userName, password } = loginDto;
+    try {
+      const { userName, password } = loginDto;
 
-    const admin = await this.adminModel.model.findOne({
-      $or: [{ userName }, { email: userName }],
-    });
+      const admin = await this.adminModel.model.findOne({
+        $or: [{ userName }, { email: userName }],
+      });
 
-    if (admin) {
-      const checkPw = await this.checkPassword(password, admin.password);
+      if (admin) {
+        const checkPw = await this.checkPassword(password, admin.password);
 
-      if (admin.isLocked) {
-        throw new BadRequestException('Account is locked. Please contact the administrator.');
-      }
-
-      if (checkPw) {
-        if (admin.loginAttempts > 0) {
-          await this.adminModel.model.updateOne({ _id: admin._id }, { loginAttempts: 0 });
+        if (admin.isLocked) {
+          throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
 
-        if (admin.email) {
-          const accessToken = await this.generateAccessToken(admin._id, admin.email, admin.role);
-          const refreshToken = await this.generateRefreshToken(admin._id, admin.email, admin.role);
-          const tokens = { accessToken, refreshToken };
+        if (checkPw) {
+          if (admin.loginAttempts > 0) {
+            await this.adminModel.model.updateOne({ _id: admin._id }, { loginAttempts: 0 });
+          }
 
-          return tokens;
-        } else {
-          const accessToken = await this.generateAccessToken(admin._id, admin.userName, admin.role);
-          const refreshToken = await this.generateRefreshToken(admin._id, admin.userName, admin.role);
-          const tokens = { accessToken, refreshToken };
+          if (admin.email) {
+            const accessToken = await this.generateAccessToken(admin._id, admin.email, admin.role);
+            const refreshToken = await this.generateRefreshToken(admin._id, admin.email, admin.role);
+            const tokens = { accessToken, refreshToken };
 
-          return tokens;
+            return tokens;
+          } else {
+            const accessToken = await this.generateAccessToken(admin._id, admin.userName, admin.role);
+            const refreshToken = await this.generateRefreshToken(admin._id, admin.userName, admin.role);
+            const tokens = { accessToken, refreshToken };
+
+            return tokens;
+          }
+        }
+
+        if (admin.loginAttempts < 4) {
+          await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 } });
+
+          throw new BadRequestException(
+            `Password is incorrect. You have \`${4 - admin.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
+          );
+        }
+
+        if (admin.loginAttempts === 4) {
+          await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 }, isLocked: true });
+
+          throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
       }
 
-      if (admin.loginAttempts < 4) {
-        await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 } });
-
-        throw new BadRequestException(
-          `Password is incorrect. You have \`${4 - admin.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
-        );
-      }
-
-      if (admin.loginAttempts === 4) {
-        await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 }, isLocked: true });
-
-        throw new BadRequestException('Account is locked. Please contact the administrator.');
-      }
+      throw new BadRequestException('Username or password is incorrect.');
+    } catch (error) {
+      throw new BadRequestException(`Error while login: ${error.message}`);
     }
-
-    throw new BadRequestException('Username or password is incorrect.');
   }
 
   async loginOrganization(loginDto: LoginRequestDto): Promise<OrganizationLoginResponseDto> {
-    const { userName, password } = loginDto;
+    try {
+      const { userName, password } = loginDto;
 
-    const organization = await this.organizationModel.model.findOne({
-      $or: [{ userName }, { email: userName }],
-    });
+      const organization = await this.organizationModel.model.findOne({
+        $or: [{ userName }, { email: userName }],
+      });
 
-    if (organization) {
-      const checkPw = await this.checkPassword(password, organization.password);
+      if (organization) {
+        const checkPw = await this.checkPassword(password, organization.password);
 
-      if (organization.isLocked) {
-        throw new BadRequestException('Account is locked. Please contact the administrator.');
-      }
-
-      if (checkPw) {
-        if (organization.loginAttempts > 0) {
-          await this.adminModel.model.updateOne({ _id: organization._id }, { loginAttempts: 0 });
+        if (organization.isLocked) {
+          throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
-        const accessToken = await this.generateAccessToken(organization._id, organization.email, organization.role);
-        const refreshToken = await this.generateRefreshToken(organization._id, organization.email, organization.role);
-        const tokens = { accessToken, refreshToken };
 
-        return tokens;
+        if (checkPw) {
+          if (organization.loginAttempts > 0) {
+            await this.adminModel.model.updateOne({ _id: organization._id }, { loginAttempts: 0 });
+          }
+          const accessToken = await this.generateAccessToken(organization._id, organization.email, organization.role);
+          const refreshToken = await this.generateRefreshToken(organization._id, organization.email, organization.role);
+          const tokens = { accessToken, refreshToken };
+
+          return tokens;
+        }
+
+        if (organization.loginAttempts < 4) {
+          await this.adminModel.model.updateOne({ _id: organization._id }, { $inc: { loginAttempts: 1 } });
+
+          throw new BadRequestException(
+            `Username or password is incorrect. You have \`${4 - organization.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
+          );
+        }
+
+        if (organization.loginAttempts === 4) {
+          await this.adminModel.model.updateOne(
+            { _id: organization._id },
+            { $inc: { loginAttempts: 1 }, isLocked: true },
+          );
+
+          throw new BadRequestException('Account is locked. Please contact the administrator.');
+        }
       }
 
-      if (organization.loginAttempts < 4) {
-        await this.adminModel.model.updateOne({ _id: organization._id }, { $inc: { loginAttempts: 1 } });
-
-        throw new BadRequestException(
-          `Username or password is incorrect. You have \`${4 - organization.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
-        );
-      }
-
-      if (organization.loginAttempts === 4) {
-        await this.adminModel.model.updateOne(
-          { _id: organization._id },
-          { $inc: { loginAttempts: 1 }, isLocked: true },
-        );
-
-        throw new BadRequestException('Account is locked. Please contact the administrator.');
-      }
+      throw new BadRequestException('Username or password is incorrect.');
+    } catch (error) {
+      throw new BadRequestException(`Error while login: ${error.message}`);
     }
-
-    throw new BadRequestException('Username or password is incorrect.');
   }
 
   async getOtpForgotPasswordAdmin(forgotPwDto: OtpForgotPasswordRequestDto): Promise<void> {
-    const admin = await this.adminModel.model.findOne({ email: forgotPwDto.email });
+    try {
+      const admin = await this.adminModel.model.findOne({ email: forgotPwDto.email });
 
-    if (!admin) {
-      throw new BadRequestException('User not found.');
+      if (!admin) {
+        throw new BadRequestException('User not found.');
+      }
+
+      await this.emailService.generateAndSendOtp(admin.email, admin._id, admin.role, OtpType.FORGOT_PASSWORD);
+    } catch (error) {
+      throw new BadRequestException(`Error while get OTP: ${error.message}`);
     }
-
-    await this.emailService.generateAndSendOtp(admin.email, admin._id, admin.role, OtpType.FORGOT_PASSWORD);
   }
 
   async getOtpForgotPasswordOrganization(forgotPwDto: OtpForgotPasswordRequestDto): Promise<void> {
-    const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
+    try {
+      const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
 
-    if (!user) {
-      throw new BadRequestException('User not found.');
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      if (user.isLocked) {
+        throw new BadRequestException('Account is locked. Please contact the administrator.');
+      }
+
+      await this.emailService.generateAndSendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
+    } catch (error) {
+      throw new BadRequestException(`Error while get OTP: ${error.message}`);
     }
-
-    await this.emailService.generateAndSendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
   }
 
   async resendOtpForgotPasswordAdmin(forgotPwDto: OtpForgotPasswordRequestDto): Promise<void> {
-    const user = await this.adminModel.model.findOne({ email: forgotPwDto.email });
-    if (!user) {
-      throw new BadRequestException('User not found.');
-    }
+    try {
+      const user = await this.adminModel.model.findOne({ email: forgotPwDto.email });
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
 
-    await this.emailService.resendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
+      await this.emailService.resendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
+    } catch (error) {
+      throw new BadRequestException(`Error while resend OTP: ${error.message}`);
+    }
   }
 
   async resendOtpForgotPasswordOrganization(forgotPwDto: OtpForgotPasswordRequestDto): Promise<void> {
-    const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
-    if (!user) {
-      throw new BadRequestException('User not found.');
-    }
+    try {
+      const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
 
-    await this.emailService.resendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
+      await this.emailService.resendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
+    } catch (error) {
+      throw new BadRequestException(`Error while resend OTP: ${error.message}`);
+    }
   }
 
   async sendLinkResetPasswordAdmin(forgotPwDto: ForgotPasswordRequestDto): Promise<void> {
-    const admin = await this.adminModel.model.findOne({ email: forgotPwDto.email });
+    try {
+      const admin = await this.adminModel.model.findOne({ email: forgotPwDto.email });
 
-    if (!admin) {
-      throw new BadRequestException('User not found.');
+      if (!admin) {
+        throw new BadRequestException('User not found.');
+      }
+
+      const verify = this.verifyOtp(admin._id, admin.role, forgotPwDto.otp, OtpType.FORGOT_PASSWORD);
+
+      if (!verify) {
+        throw new BadRequestException('Invalid or expired OTP.');
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+
+      await this.emailService.sendPasswordResetLink(forgotPwDto.email, admin._id, admin.role, token);
+    } catch (error) {
+      throw new BadRequestException(`Error while send link reset password: ${error.message}`);
     }
-
-    const verify = this.verifyOtp(admin._id, admin.role, forgotPwDto.otp, OtpType.FORGOT_PASSWORD);
-
-    if (!verify) {
-      throw new BadRequestException('Invalid or expired OTP.');
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-
-    await this.emailService.sendPasswordResetLink(forgotPwDto.email, admin._id, admin.role, token);
   }
 
   async sendLinkResetPasswordOrganization(forgotPwDto: ForgotPasswordRequestDto): Promise<void> {
-    const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
+    try {
+      const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
 
-    if (!user) {
-      throw new BadRequestException('User not found.');
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      const verify = this.verifyOtp(user._id, user.role, forgotPwDto.otp, OtpType.FORGOT_PASSWORD);
+
+      if (!verify) {
+        throw new BadRequestException('Invalid or expired OTP.');
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+
+      await this.emailService.sendPasswordResetLink(forgotPwDto.email, user._id, user.role, token);
+    } catch (error) {
+      throw new BadRequestException(`Error while send link reset password: ${error.message}`);
     }
-
-    const verify = this.verifyOtp(user._id, user.role, forgotPwDto.otp, OtpType.FORGOT_PASSWORD);
-
-    if (!verify) {
-      throw new BadRequestException('Invalid or expired OTP.');
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-
-    await this.emailService.sendPasswordResetLink(forgotPwDto.email, user._id, user.role, token);
   }
 
   async resetPasswordWithToken(token: string, resetPasswordDto: ResetPasswordLinkRequestDto): Promise<void> {
-    const verification = await this.verifyPasswordResetToken(token);
+    try {
+      const verification = await this.verifyPasswordResetToken(token);
 
-    if (!verification.valid) {
-      throw new BadRequestException('Invalid or expired reset link');
-    }
-
-    const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
-    const accountType = verification.accountType as ERole;
-    const accountId = verification.accountId;
-
-    if (accountType === ERole.SUPER_ADMIN || accountType === ERole.ADMIN) {
-      await this.adminModel.model.findByIdAndUpdate(accountId, { password: hashedPw });
-
-      const spAdmin = await this.adminModel.model.findById(accountId);
-
-      if (spAdmin.isLocked) {
-        await this.adminModel.model.updateOne({ _id: accountId }, { isLocked: false, loginAttempts: 0 });
+      if (!verification.valid) {
+        throw new BadRequestException('Invalid or expired reset link');
       }
-    } else if (accountType === ERole.ORGANIZATION) {
-      await this.organizationModel.model.findByIdAndUpdate(accountId, { password: hashedPw });
-    }
 
-    await this.otpModel.model.updateOne({ verificationToken: token, type: OtpType.RESET_PASSWORD }, { isUsed: true });
+      const newPassword = await this.hashPassword(resetPasswordDto.newPassword);
+      const accountType = verification.accountType as ERole;
+      const accountId = verification.accountId;
+
+      if (accountType === ERole.SUPER_ADMIN || accountType === ERole.ADMIN) {
+        await this.adminModel.model.findByIdAndUpdate(accountId, {
+          password: newPassword,
+          isLocked: false,
+          loginAttempts: 0,
+        });
+      } else if (accountType === ERole.ORGANIZATION) {
+        await this.organizationModel.model.findByIdAndUpdate(accountId, {
+          password: newPassword,
+          isLocked: false,
+          loginAttempts: 0,
+        });
+      }
+
+      await this.otpModel.model.updateOne({ verificationToken: token, type: OtpType.RESET_PASSWORD }, { isUsed: true });
+    } catch (error) {
+      throw new BadRequestException(`Error while reset password: ${error.message}`);
+    }
   }
 
   async resetPasswordOrganizationByAdmin(resetPasswordDto: ResetPasswordByAdminRequestDto): Promise<void> {
-    const user = await this.organizationModel.model.findOne({ email: resetPasswordDto.email });
+    try {
+      const user = await this.organizationModel.model.findOne({ email: resetPasswordDto.email });
 
-    if (!user) {
-      throw new BadRequestException('User not found.');
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
+
+      await this.organizationModel.model.findByIdAndUpdate(user._id, {
+        password: hashedPw,
+        isLocked: false,
+        loginAttempts: 0,
+      });
+    } catch (error) {
+      throw new BadRequestException(`Error while reset password: ${error.message}`);
     }
-
-    const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
-
-    await this.organizationModel.model.findByIdAndUpdate(user._id, { password: hashedPw });
   }
 
   async resetPasswordAdminBySuperAdmin(resetPasswordDto: ResetPasswordByAdminRequestDto): Promise<void> {
-    const admin = await this.organizationModel.model.findOne({ email: resetPasswordDto.email });
+    try {
+      const admin = await this.organizationModel.model.findOne({ email: resetPasswordDto.email });
 
-    if (!admin) {
-      throw new BadRequestException('User not found.');
+      if (!admin) {
+        throw new BadRequestException('User not found.');
+      }
+
+      if (admin.isLocked) {
+        await this.adminModel.model.updateOne({ _id: admin._id }, { isLocked: false, loginAttempts: 0 });
+      }
+
+      const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
+
+      await this.organizationModel.model.findByIdAndUpdate(admin._id, { password: hashedPw });
+    } catch (error) {
+      throw new BadRequestException(`Error while reset password: ${error.message}`);
     }
-
-    if (admin.isLocked) {
-      await this.adminModel.model.updateOne({ _id: admin._id }, { isLocked: false, loginAttempts: 0 });
-    }
-
-    const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
-
-    await this.organizationModel.model.findByIdAndUpdate(admin._id, { password: hashedPw });
   }
 
   async unlockOrganizationAccount(organizationId: string): Promise<void> {
