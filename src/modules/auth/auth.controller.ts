@@ -96,7 +96,7 @@ export class AuthController {
     return await this.authService.sendLinkResetPasswordAdmin(forgotPasswordDto);
   }
 
-  @Post('reset-password/:token')
+  @Put('reset-password/:token')
   @ApiOperation({
     summary: 'Reset password with token',
     description: 'Reset password using token from email link',
@@ -108,7 +108,7 @@ export class AuthController {
     return await this.authService.resetPasswordWithToken(token, resetPwDto);
   }
 
-  @Post('organization/reset-password')
+  @Put('organization/reset-password')
   @Roles([ERole.SUPER_ADMIN, ERole.ADMIN])
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -120,7 +120,7 @@ export class AuthController {
     return await this.authService.resetPasswordOrganizationByAdmin(resetPwOrganizationDto);
   }
 
-  @Post('admin/reset-password')
+  @Put('admin/reset-password')
   @Roles([ERole.SUPER_ADMIN])
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -129,7 +129,7 @@ export class AuthController {
     description: 'Reset password admin account by super admin',
   })
   async resetPasswordAdmin(@Body() resetPwOrganizationDto: ResetPasswordByAdminRequestDto): Promise<void> {
-    return await this.authService.resetPasswordOrganizationByAdmin(resetPwOrganizationDto);
+    return await this.authService.resetPasswordAdminBySuperAdmin(resetPwOrganizationDto);
   }
 
   @Put('unlock-account/:organizationId')

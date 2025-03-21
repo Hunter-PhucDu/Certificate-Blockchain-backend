@@ -10,7 +10,7 @@ export type AdminDocument = Admin & Document;
 })
 export class Admin {
   @Prop({ type: String, required: false, unique: true })
-  userName?: string;
+  username?: string;
 
   @Prop({ type: String, required: false, unique: true })
   email?: string;

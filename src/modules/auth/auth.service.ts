@@ -14,11 +14,10 @@ import { AdminModel } from 'modules/shared/models/admin.model';
 import { ConfigService } from '@nestjs/config';
 import { ERole } from 'modules/shared/enums/auth.enum';
 import { OtpModel } from 'modules/shared/models/otp.model';
-import { LoginResponseDto, OrganizationLoginResponseDto } from './dtos/response.dto';
+import { LoginResponseDto, OrganizationLoginResponseDto, RefreshTokenResponseDto } from './dtos/response.dto';
 import { OrganizationModel } from 'modules/shared/models/organization.model';
 import { EmailService } from 'modules/email/email.service';
 import { OtpType } from 'modules/shared/enums/otp.enum';
-import { RefreshTokenResponseDto } from 'modules/admin/dtos/response.dto';
 import { Types } from 'mongoose';
 
 @Injectable()
@@ -38,7 +37,7 @@ export class AuthService {
     if (countAdmins <= 0) {
       const password = this.configService.get('admin.password');
       const createdSuperAdmin = new this.adminModel.model({
-        userName: this.configService.get('admin.username'),
+        username: this.configService.get('admin.username'),
         password: await this.hashPassword(password),
         role: ERole.SUPER_ADMIN,
       });
@@ -49,10 +48,10 @@ export class AuthService {
 
   async loginAdmin(loginDto: LoginRequestDto): Promise<LoginResponseDto> {
     try {
-      const { userName, password } = loginDto;
+      const { username, password } = loginDto;
 
       const admin = await this.adminModel.model.findOne({
-        $or: [{ userName }, { email: userName }],
+        $or: [{ username }, { email: username }],
       });
 
       if (admin) {
@@ -64,7 +63,7 @@ export class AuthService {
 
         if (checkPw) {
           if (admin.loginAttempts > 0) {
-            await this.adminModel.model.updateOne({ _id: admin._id }, { loginAttempts: 0 });
+            await this.adminModel.model.updateOne({ _id: admin._id }, { loginAttempts: 0 }, { new: true });
           }
 
           if (admin.email) {
@@ -74,8 +73,8 @@ export class AuthService {
 
             return tokens;
           } else {
-            const accessToken = await this.generateAccessToken(admin._id, admin.userName, admin.role);
-            const refreshToken = await this.generateRefreshToken(admin._id, admin.userName, admin.role);
+            const accessToken = await this.generateAccessToken(admin._id, admin.username, admin.role);
+            const refreshToken = await this.generateRefreshToken(admin._id, admin.username, admin.role);
             const tokens = { accessToken, refreshToken };
 
             return tokens;
@@ -83,7 +82,7 @@ export class AuthService {
         }
 
         if (admin.loginAttempts < 4) {
-          await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 } });
+          await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 } }, { new: true });
 
           throw new BadRequestException(
             `Password is incorrect. You have \`${4 - admin.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
@@ -91,7 +90,11 @@ export class AuthService {
         }
 
         if (admin.loginAttempts === 4) {
-          await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 }, isLocked: true });
+          await this.adminModel.model.updateOne(
+            { _id: admin._id },
+            { $inc: { loginAttempts: 1 }, isLocked: true },
+            { new: true },
+          );
 
           throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
@@ -105,10 +108,10 @@ export class AuthService {
 
   async loginOrganization(loginDto: LoginRequestDto): Promise<OrganizationLoginResponseDto> {
     try {
-      const { userName, password } = loginDto;
+      const { username, password } = loginDto;
 
       const organization = await this.organizationModel.model.findOne({
-        $or: [{ userName }, { email: userName }],
+        $or: [{ username }, { email: username }],
       });
 
       if (organization) {
@@ -120,7 +123,7 @@ export class AuthService {
 
         if (checkPw) {
           if (organization.loginAttempts > 0) {
-            await this.adminModel.model.updateOne({ _id: organization._id }, { loginAttempts: 0 });
+            await this.adminModel.model.updateOne({ _id: organization._id }, { loginAttempts: 0 }, { new: true });
           }
           const accessToken = await this.generateAccessToken(organization._id, organization.email, organization.role);
           const refreshToken = await this.generateRefreshToken(organization._id, organization.email, organization.role);
@@ -130,7 +133,11 @@ export class AuthService {
         }
 
         if (organization.loginAttempts < 4) {
-          await this.adminModel.model.updateOne({ _id: organization._id }, { $inc: { loginAttempts: 1 } });
+          await this.adminModel.model.updateOne(
+            { _id: organization._id },
+            { $inc: { loginAttempts: 1 } },
+            { new: true },
+          );
 
           throw new BadRequestException(
             `Username or password is incorrect. You have \`${4 - organization.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
@@ -141,6 +148,7 @@ export class AuthService {
           await this.adminModel.model.updateOne(
             { _id: organization._id },
             { $inc: { loginAttempts: 1 }, isLocked: true },
+            { new: true },
           );
 
           throw new BadRequestException('Account is locked. Please contact the administrator.');
@@ -268,20 +276,32 @@ export class AuthService {
       const accountId = verification.accountId;
 
       if (accountType === ERole.SUPER_ADMIN || accountType === ERole.ADMIN) {
-        await this.adminModel.model.findByIdAndUpdate(accountId, {
-          password: newPassword,
-          isLocked: false,
-          loginAttempts: 0,
-        });
+        await this.adminModel.model.findByIdAndUpdate(
+          accountId,
+          {
+            password: newPassword,
+            isLocked: false,
+            loginAttempts: 0,
+          },
+          { new: true },
+        );
       } else if (accountType === ERole.ORGANIZATION) {
-        await this.organizationModel.model.findByIdAndUpdate(accountId, {
-          password: newPassword,
-          isLocked: false,
-          loginAttempts: 0,
-        });
+        await this.organizationModel.model.findByIdAndUpdate(
+          accountId,
+          {
+            password: newPassword,
+            isLocked: false,
+            loginAttempts: 0,
+          },
+          { new: true },
+        );
       }
 
-      await this.otpModel.model.updateOne({ verificationToken: token, type: OtpType.RESET_PASSWORD }, { isUsed: true });
+      await this.otpModel.model.updateOne(
+        { verificationToken: token, type: OtpType.RESET_PASSWORD },
+        { isUsed: true },
+        { new: true },
+      );
     } catch (error) {
       throw new BadRequestException(`Error while reset password: ${error.message}`);
     }
@@ -297,11 +317,15 @@ export class AuthService {
 
       const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
 
-      await this.organizationModel.model.findByIdAndUpdate(user._id, {
-        password: hashedPw,
-        isLocked: false,
-        loginAttempts: 0,
-      });
+      await this.organizationModel.model.findByIdAndUpdate(
+        user._id,
+        {
+          password: hashedPw,
+          isLocked: false,
+          loginAttempts: 0,
+        },
+        { new: true },
+      );
     } catch (error) {
       throw new BadRequestException(`Error while reset password: ${error.message}`);
     }
@@ -309,19 +333,19 @@ export class AuthService {
 
   async resetPasswordAdminBySuperAdmin(resetPasswordDto: ResetPasswordByAdminRequestDto): Promise<void> {
     try {
-      const admin = await this.organizationModel.model.findOne({ email: resetPasswordDto.email });
+      const admin = await this.adminModel.model.findOne({ email: resetPasswordDto.email });
 
       if (!admin) {
         throw new BadRequestException('User not found.');
       }
 
       if (admin.isLocked) {
-        await this.adminModel.model.updateOne({ _id: admin._id }, { isLocked: false, loginAttempts: 0 });
+        await this.adminModel.model.updateOne({ _id: admin._id }, { isLocked: false, loginAttempts: 0 }, { new: true });
       }
 
       const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
 
-      await this.organizationModel.model.findByIdAndUpdate(admin._id, { password: hashedPw });
+      await this.adminModel.model.findByIdAndUpdate(admin._id, { password: hashedPw }, { new: true });
     } catch (error) {
       throw new BadRequestException(`Error while reset password: ${error.message}`);
     }
@@ -335,7 +359,11 @@ export class AuthService {
         throw new BadRequestException('Account not found with this email');
       }
 
-      await this.organizationModel.updateById(account._id, { isLocked: false, loginAttempts: 0 });
+      await this.organizationModel.model.findByIdAndUpdate(
+        account._id,
+        { isLocked: false, loginAttempts: 0 },
+        { new: true },
+      );
     } catch (error) {
       throw new BadRequestException(`Error while unlock account: ${error.message}`);
     }
@@ -406,7 +434,7 @@ export class AuthService {
         return false;
       }
 
-      await this.otpModel.model.updateOne({ _id: otpDoc._id }, { isUsed: true });
+      await this.otpModel.model.updateOne({ _id: otpDoc._id }, { isUsed: true }, { new: true });
 
       return true;
     } catch (error) {
