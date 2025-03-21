@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Exclude } from 'class-transformer';
+import { Exclude, Expose } from 'class-transformer';
 
 @Exclude()
 export class LoginResponseDto {
+  @Expose()
   @ApiProperty({
     type: String,
     required: true,
@@ -10,6 +11,7 @@ export class LoginResponseDto {
   })
   accessToken: string;
 
+  @Expose()
   @ApiProperty({
     type: String,
     required: true,
@@ -20,6 +22,7 @@ export class LoginResponseDto {
 
 @Exclude()
 export class OrganizationLoginResponseDto extends LoginResponseDto {
+  @Expose()
   @ApiProperty({
     type: String,
     example: 'https://i.imgur.com/Uoeie1w.jpg',
@@ -29,6 +32,7 @@ export class OrganizationLoginResponseDto extends LoginResponseDto {
 
 @Exclude()
 export class RefreshTokenResponseDto {
+  @Expose()
   @ApiProperty({
     type: String,
     required: true,
