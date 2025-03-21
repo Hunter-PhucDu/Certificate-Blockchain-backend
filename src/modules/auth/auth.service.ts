@@ -1,317 +1,439 @@
-// import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-// import {
-//   ForgotPasswordDto,
-//   LoginRequestDto,
-//   RefreshTokenRequestDto,
-//   SuperAdminLoginRequestDto,
-// } from './dtos/request.dto';
-// import * as bcrypt from 'bcrypt';
-// import { JwtService } from '@nestjs/jwt';
-// import { AdminModel } from 'modules/shared/models/admin.model';
-// import { ConfigService } from '@nestjs/config';
-// import { ERole } from 'modules/shared/enums/auth.enum';
-// import { OtpModel } from 'modules/shared/models/otp.model';
-
-// import { LoginResponseDto, OrganizationLoginResponseDto } from './dtos/response.dto';
-// import { SuperAdminModel } from 'modules/shared/models/superAdmin.model';
-// import { OrganizationModel } from 'modules/shared/models/organization.model';
-// import { EmailService } from 'modules/email/email.service';
-// import { OtpType } from 'modules/shared/enums/otp.enum';
-
-// @Injectable()
-// export class AuthService {
-//   constructor(
-//     private readonly jwtService: JwtService,
-//     private readonly superAdminModel: SuperAdminModel,
-//     private readonly adminModel: AdminModel,
-//     private readonly organizationModel: OrganizationModel,
-//     private readonly configService: ConfigService,
-//     private readonly otpModel: OtpModel,
-//     private readonly emailService: EmailService,
-//   ) {}
-
-//   async onModuleInit() {
-//     const countSuperAdmins = await this.superAdminModel.model.countDocuments();
-
-//     if (countSuperAdmins <= 0) {
-//       const password = this.configService.get('admin.password');
-//       const createdSuperAdmin = new this.superAdminModel.model({
-//         userName: this.configService.get('admin.username'),
-//         password: await this.hashPassword(password),
-//         role: ERole.SUPER_ADMIN,
-//       });
-
-//       await createdSuperAdmin.save();
-//     }
-//   }
-
-//   async generateTokens(
-//     _id: string,
-//     username: string,
-//     role: string,
-//   ): Promise<{ accessToken: string; refreshToken: string }> {
-//     const payload = { _id, username, role };
-
-//     const accessToken = await this.jwtService.signAsync({ _id, username, role });
-
-//     const refreshToken = await this.jwtService.signAsync(payload, {
-//       secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
-//       expiresIn: '7d',
-//     });
-//     return { accessToken, refreshToken };
-//   }
-
-//   async refreshToken(refreshTokenDto: RefreshTokenRequestDto): Promise<string> {
-//     const { refreshToken } = refreshTokenDto;
-
-//     try {
-//       // Verify the token
-//       const payload = this.jwtService.verify(refreshToken, {
-//         secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
-//       });
-
-//       // Find the user based on payload
-//       let user;
-
-//       if (payload.role === ERole.SUPER_ADMIN) {
-//         user = await this.superAdminModel.model.findById(payload._id);
-//       } else if (payload.role === ERole.ADMIN) {
-//         user = await this.adminModel.model.findById(payload._id);
-//       } else if (payload.role === ERole.ORGANIZATION) {
-//         user = await this.organizationModel.model.findById(payload._id);
-//       }
-
-//       if (!user) {
-//         throw new UnauthorizedException('Invalid token - User not found');
-//       }
-
-//       // Generate new access token
-//       const newAccessToken = this.jwtService.sign({
-//         _id: payload._id,
-//         username: payload.username,
-//         role: payload.role,
-//       });
-
-//       return newAccessToken;
-//     } catch (error) {
-//       throw new UnauthorizedException('Invalid or expired refresh token');
-//     }
-//   }
-
-//   async hashPassword(password: string): Promise<string> {
-//     const salt = await bcrypt.genSalt(10);
-//     return await bcrypt.hash(password, salt);
-//   }
-
-//   async checkPassword(password: string, hashedPassword: string): Promise<boolean> {
-//     return await bcrypt.compare(password, hashedPassword);
-//   }
-
-//   async loginSuperAdmin(loginDto: LoginRequestDto): Promise<LoginResponseDto> {
-//     const superAdminToken = await this._superAdminLogin(loginDto);
-//     if (superAdminToken)
-//       return {
-//         accessToken: superAdminToken.accessToken,
-//         refreshToken: superAdminToken.refreshToken,
-//       };
-
-//     throw new BadRequestException('Username or password is incorrect.');
-//   }
-
-//   async loginAdmin(loginDto: LoginRequestDto): Promise<LoginResponseDto> {
-//     const { userName, password } = loginDto;
-
-//     // Try as Super Admin first
-//     const superAdmin = await this.superAdminModel.model.findOne({
-//       $or: [{ userName }, { email: userName }],
-//     });
-
-//     if (superAdmin) {
-//       const checkPw = await this.checkPassword(password, superAdmin.password);
-//       if (checkPw) {
-//         const tokens = await this.generateTokens(superAdmin._id.toString(), superAdmin.userName, superAdmin.role);
-//         return tokens;
-//       }
-//     }
-
-//     // Try as regular Admin
-//     const admin = await this.adminModel.model.findOne({
-//       $or: [{ userName }, { email: userName }],
-//     });
-
-//     if (admin) {
-//       const checkPw = await this.checkPassword(password, admin.password);
-//       if (checkPw) {
-//         const tokens = await this.generateTokens(admin._id.toString(), admin.userName || admin.email, admin.role);
-//         return tokens;
-//       }
-//     }
-
-//     throw new BadRequestException('Invalid username or password');
-//   }
-
-//   async loginOrganization(loginDto: LoginRequestDto): Promise<OrganizationLoginResponseDto> {
-//     const { userName, password } = loginDto;
-
-//     const organization = await this.organizationModel.model.findOne({
-//       $or: [{ email: userName }, { subdomain: userName }],
-//     });
-
-//     if (!organization) {
-//       throw new BadRequestException('Invalid username or password');
-//     }
-
-//     const checkPw = await this.checkPassword(password, organization.password);
-//     if (!checkPw) {
-//       throw new BadRequestException('Invalid username or password');
-//     }
-
-//     let logoUrl = '';
-
-//     if (!organization.logo) {
-//       logoUrl = 'https://i.imgur.com/Uoeie1w.jpg';
-//     } else {
-//       logoUrl = `${this.configService.get('app.baseUrl')}/images/${organization.logo}`;
-//     }
-
-//     const tokens = await this.generateTokens(organization._id.toString(), organization.subdomain, organization.role);
-
-//     return { ...tokens, logoUrl };
-//   }
-
-//   async _superAdminLogin(loginDto: SuperAdminLoginRequestDto): Promise<LoginResponseDto> {
-//     const superAdmin = await this.superAdminModel.model.findOne({
-//       $or: [{ userName: loginDto.userName }, { email: loginDto.userName }],
-//     });
-//     if (!superAdmin) return null;
-
-//     const checkPw = await this.checkPassword(loginDto.password, superAdmin.password);
-//     if (!checkPw) return null;
-
-//     const tokens = await this.generateTokens(superAdmin._id.toString(), superAdmin.userName, superAdmin.role);
-
-//     return { ...tokens };
-//   }
-
-//   async forgotPassword(forgotPwDto: ForgotPasswordDto): Promise<void> {
-//     const user = await this.superAdminModel.model.findOne({ email: forgotPwDto.email });
-
-//     if (!user) {
-//       throw new BadRequestException('User not found.');
-//     }
-
-//     const otpDoc = await this.otpModel.model.findOne({ userId: user._id, otp: forgotPwDto.otp });
-
-//     if (!otpDoc || otpDoc.expiresAt < new Date()) {
-//       throw new BadRequestException('Invalid or expired OTP.');
-//     }
-
-//     const hashedPw = await this.hashPassword(forgotPwDto.newPassword);
-//     await this.superAdminModel.model.findOneAndUpdate({ _id: user._id }, { password: hashedPw }, { new: true });
-
-//     await this.otpModel.model.deleteOne({ _id: otpDoc._id });
-//   }
-
-//   // Find account by email and account type
-//   private async findAccountByEmail(email: string, accountType: ERole): Promise<any> {
-//     if (accountType === ERole.SUPER_ADMIN) {
-//       return this.superAdminModel.model.findOne({ email });
-//     } else if (accountType === ERole.ADMIN) {
-//       return this.adminModel.model.findOne({ email });
-//     } else if (accountType === ERole.ORGANIZATION) {
-//       return this.organizationModel.model.findOne({ email });
-//     }
-//     return null;
-//   }
-
-//   // Generate OTP for email verification or password reset
-//   async generateOtp(email: string, accountType: ERole): Promise<void> {
-//     const account = await this.findAccountByEmail(email, accountType);
-
-//     if (!account) {
-//       throw new NotFoundException('Account not found with this email');
-//     }
-
-//     await this.emailService.generateAndSendOtp(email, account._id, accountType, OtpType.FORGOT_PASSWORD);
-//   }
-
-//   // Send password reset link or OTP based on preference
-//   async sendPasswordReset(email: string, accountType: ERole): Promise<void> {
-//     const account = await this.findAccountByEmail(email, accountType);
-
-//     if (!account) {
-//       throw new NotFoundException('Account not found with this email');
-//     }
-
-//     // Send password reset link (more modern approach)
-//     await this.emailService.sendPasswordResetLink(email, account._id, accountType);
-//   }
-
-//   // Reset password with OTP method
-//   async resetPasswordWithOtp(forgotPwDto: ForgotPasswordDto): Promise<void> {
-//     const { email, otp, newPassword, accountType } = forgotPwDto;
-
-//     const account = await this.findAccountByEmail(email, accountType);
-
-//     if (!account) {
-//       throw new NotFoundException('Account not found with this email');
-//     }
-
-//     // Verify OTP
-//     const isValid = await this.emailService.verifyOtp(account._id, accountType, otp, OtpType.FORGOT_PASSWORD);
-
-//     if (!isValid) {
-//       throw new BadRequestException('Invalid or expired verification code');
-//     }
-
-//     // Hash new password
-//     const hashedPw = await this.hashPassword(newPassword);
-
-//     // Update password in appropriate collection
-//     if (accountType === ERole.SUPER_ADMIN) {
-//       await this.superAdminModel.model.findByIdAndUpdate(account._id, { password: hashedPw });
-//     } else if (accountType === ERole.ADMIN) {
-//       await this.adminModel.model.findByIdAndUpdate(account._id, { password: hashedPw });
-//     } else if (accountType === ERole.ORGANIZATION) {
-//       await this.organizationModel.model.findByIdAndUpdate(account._id, { password: hashedPw });
-//     }
-//   }
-
-//   // Reset password with token from email
-//   async resetPasswordWithToken(token: string, newPassword: string): Promise<void> {
-//     const verification = await this.emailService.verifyPasswordResetToken(token);
-
-//     if (!verification.valid) {
-//       throw new BadRequestException('Invalid or expired reset link');
-//     }
-
-//     // Hash new password
-//     const hashedPw = await this.hashPassword(newPassword);
-
-//     // Update password based on account type
-//     const accountType = verification.accountType as ERole;
-//     const accountId = verification.accountId;
-
-//     if (accountType === ERole.SUPER_ADMIN) {
-//       await this.superAdminModel.model.findByIdAndUpdate(accountId, { password: hashedPw });
-//     } else if (accountType === ERole.ADMIN) {
-//       await this.adminModel.model.findByIdAndUpdate(accountId, { password: hashedPw });
-//     } else if (accountType === ERole.ORGANIZATION) {
-//       await this.organizationModel.model.findByIdAndUpdate(accountId, { password: hashedPw });
-//     }
-
-//     // Mark the token as used
-//     await this.otpModel.model.updateOne({ verificationToken: token, type: OtpType.FORGOT_PASSWORD }, { isUsed: true });
-//   }
-
-//   // Send email verification link
-//   async sendEmailVerification(email: string, accountType: ERole): Promise<void> {
-//     const account = await this.findAccountByEmail(email, accountType);
-
-//     if (!account) {
-//       throw new NotFoundException('Account not found with this email');
-//     }
-
-//     await this.emailService.sendEmailVerification(email, account._id, accountType);
-//   }
-// }
+import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  OtpForgotPasswordRequestDto,
+  ForgotPasswordRequestDto,
+  ResetPasswordLinkRequestDto,
+  LoginRequestDto,
+  RefreshTokenRequestDto,
+  ResetPasswordByAdminRequestDto,
+} from './dtos/request.dto';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import { JwtService } from '@nestjs/jwt';
+import { AdminModel } from 'modules/shared/models/admin.model';
+import { ConfigService } from '@nestjs/config';
+import { ERole } from 'modules/shared/enums/auth.enum';
+import { OtpModel } from 'modules/shared/models/otp.model';
+import { LoginResponseDto, OrganizationLoginResponseDto } from './dtos/response.dto';
+import { OrganizationModel } from 'modules/shared/models/organization.model';
+import { EmailService } from 'modules/email/email.service';
+import { OtpType } from 'modules/shared/enums/otp.enum';
+import { RefreshTokenResponseDto } from 'modules/admin/dtos/response.dto';
+import { Types } from 'mongoose';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly adminModel: AdminModel,
+    private readonly organizationModel: OrganizationModel,
+    private readonly configService: ConfigService,
+    private readonly otpModel: OtpModel,
+    private readonly emailService: EmailService,
+  ) {}
+
+  async onModuleInit() {
+    const countAdmins = await this.adminModel.model.countDocuments();
+
+    if (countAdmins <= 0) {
+      const password = this.configService.get('admin.password');
+      const createdSuperAdmin = new this.adminModel.model({
+        userName: this.configService.get('admin.username'),
+        password: await this.hashPassword(password),
+        role: ERole.SUPER_ADMIN,
+      });
+
+      await createdSuperAdmin.save();
+    }
+  }
+
+  async loginAdmin(loginDto: LoginRequestDto): Promise<LoginResponseDto> {
+    try {
+      const { userName, password } = loginDto;
+
+      const admin = await this.adminModel.model.findOne({
+        $or: [{ userName }, { email: userName }],
+      });
+
+      if (admin) {
+        const checkPw = await this.checkPassword(password, admin.password);
+
+        if (admin.isLocked) {
+          throw new BadRequestException('Account is locked. Please contact the administrator.');
+        }
+
+        if (checkPw) {
+          if (admin.loginAttempts > 0) {
+            await this.adminModel.model.updateOne({ _id: admin._id }, { loginAttempts: 0 });
+          }
+
+          if (admin.email) {
+            const accessToken = await this.generateAccessToken(admin._id, admin.email, admin.role);
+            const refreshToken = await this.generateRefreshToken(admin._id, admin.email, admin.role);
+            const tokens = { accessToken, refreshToken };
+
+            return tokens;
+          } else {
+            const accessToken = await this.generateAccessToken(admin._id, admin.userName, admin.role);
+            const refreshToken = await this.generateRefreshToken(admin._id, admin.userName, admin.role);
+            const tokens = { accessToken, refreshToken };
+
+            return tokens;
+          }
+        }
+
+        if (admin.loginAttempts < 4) {
+          await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 } });
+
+          throw new BadRequestException(
+            `Password is incorrect. You have \`${4 - admin.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
+          );
+        }
+
+        if (admin.loginAttempts === 4) {
+          await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 }, isLocked: true });
+
+          throw new BadRequestException('Account is locked. Please contact the administrator.');
+        }
+      }
+
+      throw new BadRequestException('Username or password is incorrect.');
+    } catch (error) {
+      throw new BadRequestException(`Error while login: ${error.message}`);
+    }
+  }
+
+  async loginOrganization(loginDto: LoginRequestDto): Promise<OrganizationLoginResponseDto> {
+    try {
+      const { userName, password } = loginDto;
+
+      const organization = await this.organizationModel.model.findOne({
+        $or: [{ userName }, { email: userName }],
+      });
+
+      if (organization) {
+        const checkPw = await this.checkPassword(password, organization.password);
+
+        if (organization.isLocked) {
+          throw new BadRequestException('Account is locked. Please contact the administrator.');
+        }
+
+        if (checkPw) {
+          if (organization.loginAttempts > 0) {
+            await this.adminModel.model.updateOne({ _id: organization._id }, { loginAttempts: 0 });
+          }
+          const accessToken = await this.generateAccessToken(organization._id, organization.email, organization.role);
+          const refreshToken = await this.generateRefreshToken(organization._id, organization.email, organization.role);
+          const tokens = { accessToken, refreshToken };
+
+          return tokens;
+        }
+
+        if (organization.loginAttempts < 4) {
+          await this.adminModel.model.updateOne({ _id: organization._id }, { $inc: { loginAttempts: 1 } });
+
+          throw new BadRequestException(
+            `Username or password is incorrect. You have \`${4 - organization.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
+          );
+        }
+
+        if (organization.loginAttempts === 4) {
+          await this.adminModel.model.updateOne(
+            { _id: organization._id },
+            { $inc: { loginAttempts: 1 }, isLocked: true },
+          );
+
+          throw new BadRequestException('Account is locked. Please contact the administrator.');
+        }
+      }
+
+      throw new BadRequestException('Username or password is incorrect.');
+    } catch (error) {
+      throw new BadRequestException(`Error while login: ${error.message}`);
+    }
+  }
+
+  async getOtpForgotPasswordAdmin(forgotPwDto: OtpForgotPasswordRequestDto): Promise<void> {
+    try {
+      const admin = await this.adminModel.model.findOne({ email: forgotPwDto.email });
+
+      if (!admin) {
+        throw new BadRequestException('User not found.');
+      }
+
+      await this.emailService.generateAndSendOtp(admin.email, admin._id, admin.role, OtpType.FORGOT_PASSWORD);
+    } catch (error) {
+      throw new BadRequestException(`Error while get OTP: ${error.message}`);
+    }
+  }
+
+  async getOtpForgotPasswordOrganization(forgotPwDto: OtpForgotPasswordRequestDto): Promise<void> {
+    try {
+      const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
+
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      if (user.isLocked) {
+        throw new BadRequestException('Account is locked. Please contact the administrator.');
+      }
+
+      await this.emailService.generateAndSendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
+    } catch (error) {
+      throw new BadRequestException(`Error while get OTP: ${error.message}`);
+    }
+  }
+
+  async resendOtpForgotPasswordAdmin(forgotPwDto: OtpForgotPasswordRequestDto): Promise<void> {
+    try {
+      const user = await this.adminModel.model.findOne({ email: forgotPwDto.email });
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      await this.emailService.resendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
+    } catch (error) {
+      throw new BadRequestException(`Error while resend OTP: ${error.message}`);
+    }
+  }
+
+  async resendOtpForgotPasswordOrganization(forgotPwDto: OtpForgotPasswordRequestDto): Promise<void> {
+    try {
+      const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      await this.emailService.resendOtp(user.email, user._id, user.role, OtpType.FORGOT_PASSWORD);
+    } catch (error) {
+      throw new BadRequestException(`Error while resend OTP: ${error.message}`);
+    }
+  }
+
+  async sendLinkResetPasswordAdmin(forgotPwDto: ForgotPasswordRequestDto): Promise<void> {
+    try {
+      const admin = await this.adminModel.model.findOne({ email: forgotPwDto.email });
+
+      if (!admin) {
+        throw new BadRequestException('User not found.');
+      }
+
+      const verify = this.verifyOtp(admin._id, admin.role, forgotPwDto.otp, OtpType.FORGOT_PASSWORD);
+
+      if (!verify) {
+        throw new BadRequestException('Invalid or expired OTP.');
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+
+      await this.emailService.sendPasswordResetLink(forgotPwDto.email, admin._id, admin.role, token);
+    } catch (error) {
+      throw new BadRequestException(`Error while send link reset password: ${error.message}`);
+    }
+  }
+
+  async sendLinkResetPasswordOrganization(forgotPwDto: ForgotPasswordRequestDto): Promise<void> {
+    try {
+      const user = await this.organizationModel.model.findOne({ email: forgotPwDto.email });
+
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      const verify = this.verifyOtp(user._id, user.role, forgotPwDto.otp, OtpType.FORGOT_PASSWORD);
+
+      if (!verify) {
+        throw new BadRequestException('Invalid or expired OTP.');
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+
+      await this.emailService.sendPasswordResetLink(forgotPwDto.email, user._id, user.role, token);
+    } catch (error) {
+      throw new BadRequestException(`Error while send link reset password: ${error.message}`);
+    }
+  }
+
+  async resetPasswordWithToken(token: string, resetPasswordDto: ResetPasswordLinkRequestDto): Promise<void> {
+    try {
+      const verification = await this.verifyPasswordResetToken(token);
+
+      if (!verification.valid) {
+        throw new BadRequestException('Invalid or expired reset link');
+      }
+
+      const newPassword = await this.hashPassword(resetPasswordDto.newPassword);
+      const accountType = verification.accountType as ERole;
+      const accountId = verification.accountId;
+
+      if (accountType === ERole.SUPER_ADMIN || accountType === ERole.ADMIN) {
+        await this.adminModel.model.findByIdAndUpdate(accountId, {
+          password: newPassword,
+          isLocked: false,
+          loginAttempts: 0,
+        });
+      } else if (accountType === ERole.ORGANIZATION) {
+        await this.organizationModel.model.findByIdAndUpdate(accountId, {
+          password: newPassword,
+          isLocked: false,
+          loginAttempts: 0,
+        });
+      }
+
+      await this.otpModel.model.updateOne({ verificationToken: token, type: OtpType.RESET_PASSWORD }, { isUsed: true });
+    } catch (error) {
+      throw new BadRequestException(`Error while reset password: ${error.message}`);
+    }
+  }
+
+  async resetPasswordOrganizationByAdmin(resetPasswordDto: ResetPasswordByAdminRequestDto): Promise<void> {
+    try {
+      const user = await this.organizationModel.model.findOne({ email: resetPasswordDto.email });
+
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
+
+      await this.organizationModel.model.findByIdAndUpdate(user._id, {
+        password: hashedPw,
+        isLocked: false,
+        loginAttempts: 0,
+      });
+    } catch (error) {
+      throw new BadRequestException(`Error while reset password: ${error.message}`);
+    }
+  }
+
+  async resetPasswordAdminBySuperAdmin(resetPasswordDto: ResetPasswordByAdminRequestDto): Promise<void> {
+    try {
+      const admin = await this.organizationModel.model.findOne({ email: resetPasswordDto.email });
+
+      if (!admin) {
+        throw new BadRequestException('User not found.');
+      }
+
+      if (admin.isLocked) {
+        await this.adminModel.model.updateOne({ _id: admin._id }, { isLocked: false, loginAttempts: 0 });
+      }
+
+      const hashedPw = await this.hashPassword(resetPasswordDto.newPassword);
+
+      await this.organizationModel.model.findByIdAndUpdate(admin._id, { password: hashedPw });
+    } catch (error) {
+      throw new BadRequestException(`Error while reset password: ${error.message}`);
+    }
+  }
+
+  async unlockOrganizationAccount(organizationId: string): Promise<void> {
+    try {
+      const account = await this.organizationModel.findById(organizationId);
+
+      if (!account) {
+        throw new BadRequestException('Account not found with this email');
+      }
+
+      await this.organizationModel.updateById(account._id, { isLocked: false, loginAttempts: 0 });
+    } catch (error) {
+      throw new BadRequestException(`Error while unlock account: ${error.message}`);
+    }
+  }
+
+  async generateAccessToken(_id: string, username: string, role: string): Promise<string> {
+    return await this.jwtService.signAsync(
+      { _id, username, role },
+      {
+        expiresIn: '1h',
+      },
+    );
+  }
+
+  async generateRefreshToken(_id: string, username: string, role: string): Promise<string> {
+    const payload = { _id, username, role };
+
+    return await this.jwtService.signAsync(payload, {
+      secret: this.configService.get('app.auth.jwtRefreshSecret'),
+      expiresIn: '7d',
+    });
+  }
+
+  async refreshToken(refreshTokenDto: RefreshTokenRequestDto): Promise<RefreshTokenResponseDto> {
+    const { refreshToken } = refreshTokenDto;
+
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get('app.auth.jwtRefreshSecret'),
+      });
+
+      const newAccessToken = await this.generateAccessToken(payload._id, payload.username, payload.role);
+
+      return { accessToken: newAccessToken };
+    } catch (error) {
+      throw new BadRequestException(`Error while refresh token: ${error.message}`);
+    }
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt(10);
+    return await bcrypt.hash(password, salt);
+  }
+
+  async checkPassword(password: string, hashedPassword: string): Promise<boolean> {
+    return await bcrypt.compare(password, hashedPassword);
+  }
+
+  async verifyOtp(
+    accountId: string | Types.ObjectId,
+    accountType: ERole,
+    otp: string,
+    type: OtpType,
+  ): Promise<boolean> {
+    try {
+      const otpDoc = await this.otpModel.model
+        .findOne({
+          accountId,
+          accountType,
+          otp,
+          type,
+          expiresAt: { $gt: new Date() },
+          isUsed: false,
+        })
+        .lean();
+
+      if (!otpDoc) {
+        return false;
+      }
+
+      await this.otpModel.model.updateOne({ _id: otpDoc._id }, { isUsed: true });
+
+      return true;
+    } catch (error) {
+      throw new BadRequestException(`Error verifying OTP: ${error.message}`);
+    }
+  }
+
+  async verifyPasswordResetToken(token: string): Promise<{ valid: boolean; accountId?: string; accountType?: string }> {
+    try {
+      const verification = await this.otpModel.model.findOne({
+        verificationToken: token,
+        expiresAt: { $gt: new Date() },
+        isUsed: false,
+        type: OtpType.RESET_PASSWORD,
+      });
+
+      if (!verification) {
+        return { valid: false };
+      }
+
+      return {
+        valid: true,
+        accountId: verification.accountId.toString(),
+        accountType: verification.accountType,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Error verifying reset token: ${error.message}`);
+    }
+  }
+}

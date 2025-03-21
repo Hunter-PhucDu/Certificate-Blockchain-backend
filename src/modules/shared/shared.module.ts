@@ -10,7 +10,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { Organization, OrganizationSchema } from './schemas/organization.schema';
 import { Otp, OtpSchema } from './schemas/otp.schema';
 import { Certificate, CertificateSchema } from './schemas/certificate.schema';
-import { SuperAdmin, SuperAdminSchema } from './schemas/superAdmin.schema';
 import { Admin, AdminSchema } from './schemas/admin.schema';
 
 @Module({
@@ -38,7 +37,6 @@ import { Admin, AdminSchema } from './schemas/admin.schema';
       inject: [ConfigService],
     }),
     MongooseModule.forFeature([
-      { name: SuperAdmin.name, schema: SuperAdminSchema },
       { name: Admin.name, schema: AdminSchema },
       { name: Organization.name, schema: OrganizationSchema },
       { name: Otp.name, schema: OtpSchema },

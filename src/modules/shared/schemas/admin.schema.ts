@@ -12,11 +12,14 @@ export class Admin {
   @Prop({ type: String, required: false, unique: true })
   userName?: string;
 
-  @Prop({ type: String, required: true, unique: true })
-  email: string;
-
   @Prop({ type: String, required: false, unique: true })
-  phone?: string;
+  email?: string;
+
+  @Prop({ type: Number, required: true, default: 0 })
+  loginAttempts: number;
+
+  @Prop({ type: Boolean, required: true, default: false })
+  isLocked: boolean;
 
   @Prop({ type: String, required: true })
   password: string;
