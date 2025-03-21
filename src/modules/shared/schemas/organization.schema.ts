@@ -18,9 +18,6 @@ export class Organization {
   @Prop({ required: false, type: String })
   logo?: string;
 
-  @Prop({ type: String, required: true })
-  organizationName: string;
-
   @Prop({ type: String, required: true, unique: true })
   email: string;
 
@@ -30,15 +27,23 @@ export class Organization {
   @Prop({ type: String, required: false })
   address?: string;
 
+  // Two-factor authentication
+  @Prop({ type: Boolean, required: true, default: false })
+  twoFactorAuthEnabled: boolean;
+
+  // Count of failed login attempts
   @Prop({ type: Number, required: true, default: 0 })
   loginAttempts: number;
 
+  // Account lock when login attempts exceed the limit
   @Prop({ type: Boolean, required: true, default: false })
   isLocked: boolean;
 
+  // Lock expires at
   @Prop({ type: Date, required: false, default: null })
   lockExpiresAt?: Date;
 
+  // Password reset for first login
   @Prop({ type: Boolean, required: true, default: false })
   isPasswordChanged: boolean;
 
