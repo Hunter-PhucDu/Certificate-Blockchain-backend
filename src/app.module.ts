@@ -9,6 +9,7 @@ import { BlockchainModule } from 'modules/blockchain/blockchain.module';
 // import { SubdomainMiddleware } from 'modules/shared/middlewares/subdomain.middleware';
 import { join } from 'path';
 import { AuthModule } from 'modules/auth/auth.module';
+import { AdminModule } from 'modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { AuthModule } from 'modules/auth/auth.module';
     // }),
     SharedModule,
     AuthModule,
-    // AdminModule,
+    AdminModule,
     EmailModule,
     // OrganizationModule,
     CertificateModule,

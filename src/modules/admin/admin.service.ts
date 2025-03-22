@@ -1,98 +1,132 @@
-// import { BadRequestException, Injectable } from '@nestjs/common';
-// import { plainToClass } from 'class-transformer';
-// import { AuthService } from '../auth/auth.service';
-// import { ERole } from 'modules/shared/enums/auth.enum';
-// import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
-// import { AdminModel } from 'modules/shared/models/admin.model';
-// import { AddAdminRequestDto, ChangePasswordRequestDto, ForgotPasswordAdminDto } from './dtos/request.dto';
-// import { AdminResponseDto, ChangePasswordResponseDto } from './dtos/response.dto';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { plainToClass, plainToInstance } from 'class-transformer';
+import { AuthService } from '../auth/auth.service';
+import { ERole } from 'modules/shared/enums/auth.enum';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
+import { AdminModel } from 'modules/shared/models/admin.model';
+import {
+  AddAdminRequestDto,
+  ChangePasswordRequestDto,
+  GetAdminsRequestDto,
+  UpdateAdminRequestDto,
+} from './dtos/request.dto';
+import { AdminResponseDto } from './dtos/response.dto';
+import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
+import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
+import { getPagination } from 'modules/shared/utils/get-pagination';
 
-// @Injectable()
-// export class AdminService {
-//   constructor(
-//     private readonly adminModel: AdminModel,
-//     private readonly authService: AuthService,
-//   ) {}
+@Injectable()
+export class AdminService {
+  constructor(
+    private readonly adminModel: AdminModel,
+    private readonly authService: AuthService,
+  ) {}
 
-//   async addAdmin(addAdminDto: AddAdminRequestDto): Promise<AdminResponseDto> {
-//     try {
-//       const { userName, password } = addAdminDto;
-//       const existedUser = await this.adminModel.model.findOne({ userName });
+  async addAdmin(addAdminDto: AddAdminRequestDto): Promise<AdminResponseDto> {
+    try {
+      const { username, email, password } = addAdminDto;
+      const existedUser = await this.adminModel.model.findOne({ username, email });
 
-//       if (existedUser) {
-//         throw new BadRequestException('UserName, Email or phone number has been registered.');
-//       }
+      if (existedUser) {
+        throw new BadRequestException('Username or email has been registered.');
+      }
 
-//       const hashedPw = await this.authService.hashPassword(password);
+      const hashedPw = await this.authService.hashPassword(password);
 
-//       const newUser = await this.adminModel.save({
-//         ...addAdminDto,
-//         password: hashedPw,
-//         role: ERole.SUPER_ADMIN,
-//       });
-//       return plainToClass(AdminResponseDto, newUser.toObject());
-//     } catch (error) {
-//       throw new BadRequestException(`Error while add new admin: ${error.message}`);
-//     }
-//   }
+      const newUser = await this.adminModel.save({
+        ...addAdminDto,
+        password: hashedPw,
+        isLocked: false,
+        loginAttempts: 0,
+        role: ERole.ADMIN,
+      });
+      return plainToClass(AdminResponseDto, newUser.toObject());
+    } catch (error) {
+      throw new BadRequestException(`Error while add new admin: ${error.message}`);
+    }
+  }
 
-//   async getAdmins(): Promise<AdminResponseDto[]> {
-//     try {
-//       const adminsDoc = await this.adminModel.model.find().exec();
-//       return adminsDoc.map((doc) => doc.toObject());
-//     } catch (e) {
-//       throw new BadRequestException(`Error while getting admins: ${e.message}`);
-//     }
-//   }
+  async getAdmin(user: IJwtPayload): Promise<AdminResponseDto> {
+    try {
+      const userDoc = await this.adminModel.model.findById({ _id: user._id });
+      if (!userDoc) {
+        throw new BadRequestException('Admin not found');
+      }
 
-//   async changePassword(
-//     user: IJwtPayload,
-//     changePasswordDto: ChangePasswordRequestDto,
-//   ): Promise<ChangePasswordResponseDto> {
-//     try {
-//       const existedUser = await this.adminModel.model.findById({ _id: user._id });
-//       if (!existedUser) {
-//         throw new BadRequestException('Admin not found');
-//       }
-//       const checkPw = await this.authService.checkPassword(changePasswordDto.password, existedUser.password);
-//       if (!checkPw) {
-//         throw new BadRequestException('Wrong password');
-//       }
+      return plainToInstance(AdminResponseDto, userDoc.toObject());
+    } catch (error) {
+      throw new BadRequestException(`Error while getting admin detail: ${error.message}`);
+    }
+  }
 
-//       const hashedPw = await this.authService.hashPassword(changePasswordDto.newPassword);
+  async updateAdmin(user: IJwtPayload, updateAdminDto: UpdateAdminRequestDto): Promise<AdminResponseDto> {
+    try {
+      const userDoc = await this.adminModel.model.findById({ _id: user._id });
+      if (!userDoc) {
+        throw new BadRequestException('Admin not found');
+      }
 
-//       const updatedPw = await this.adminModel.model.findOneAndUpdate(
-//         { _id: user._id },
-//         { password: hashedPw },
-//         { new: true },
-//       );
+      const updatedUser = await this.adminModel.model.findOneAndUpdate(
+        { _id: user._id },
+        { $set: updateAdminDto },
+        { new: true },
+      );
+      return plainToInstance(AdminResponseDto, updatedUser.toObject());
+    } catch (error) {
+      throw new BadRequestException(`Error while updating admin: ${error.message}`);
+    }
+  }
 
-//       return plainToClass(ChangePasswordResponseDto, updatedPw.toObject());
-//     } catch (error) {
-//       throw new BadRequestException(`Error while changing password: ${error.message}`);
-//     }
-//   }
+  async getAdmins(paginationDto: GetAdminsRequestDto): Promise<ListRecordSuccessResponseDto<AdminResponseDto>> {
+    const { page, size, search } = paginationDto;
+    const skip = (page - 1) * size;
 
-//   async forgotPassword(forgotPwAdminDto: ForgotPasswordAdminDto): Promise<void> {
-//     const user = await this.adminModel.model.findOne({ userName: forgotPwAdminDto.userName });
+    const searchCondition = search
+      ? { $or: [{ username: { $regex: new RegExp(search, 'i') } }, { email: { $regex: new RegExp(search, 'i') } }] }
+      : {};
 
-//     if (!user) {
-//       throw new BadRequestException('User not found.');
-//     }
+    const [admins, totalItem] = await Promise.all([
+      this.adminModel.model.find(searchCondition).skip(skip).limit(size).exec(),
+      this.adminModel.model.countDocuments(searchCondition),
+    ]);
 
-//     const hashedPw = await this.authService.hashPassword(forgotPwAdminDto.newPassword);
-//     await this.adminModel.model.findOneAndUpdate({ _id: user._id }, { password: hashedPw }, { new: true });
-//   }
+    const metadata: MetadataResponseDto = getPagination(size, page, totalItem);
+    const adminResponseDtos: AdminResponseDto[] = plainToInstance(AdminResponseDto, admins);
 
-//   async deleteAdmin(userId: string): Promise<void> {
-//     try {
-//       const deletedUser = await this.adminModel.model.findOneAndDelete({ _id: userId });
+    return {
+      metadata,
+      data: adminResponseDtos,
+    };
+  }
 
-//       if (!deletedUser) {
-//         throw new BadRequestException('Admin not found');
-//       }
-//     } catch (error) {
-//       throw new BadRequestException(`Error while deleting admin: ${error.message}`);
-//     }
-//   }
-// }
+  async changePassword(user: IJwtPayload, changePasswordDto: ChangePasswordRequestDto): Promise<void> {
+    try {
+      const existedUser = await this.adminModel.model.findById({ _id: user._id });
+      if (!existedUser) {
+        throw new BadRequestException('Admin not found');
+      }
+      const checkPw = await this.authService.checkPassword(changePasswordDto.password, existedUser.password);
+      if (!checkPw) {
+        throw new BadRequestException('Wrong password');
+      }
+
+      const hashedPw = await this.authService.hashPassword(changePasswordDto.newPassword);
+
+      await this.adminModel.model.findOneAndUpdate({ _id: user._id }, { password: hashedPw }, { new: true });
+    } catch (error) {
+      throw new BadRequestException(`Error while changing password: ${error.message}`);
+    }
+  }
+
+  async deleteAdmin(userId: string): Promise<void> {
+    try {
+      const deletedUser = await this.adminModel.model.findOneAndDelete({ _id: userId });
+
+      if (!deletedUser) {
+        throw new BadRequestException('Admin not found');
+      }
+    } catch (error) {
+      throw new BadRequestException(`Error while deleting admin: ${error.message}`);
+    }
+  }
+}
