@@ -20,6 +20,7 @@ export class BaseRequestDto {
   @Transform(({ value }) => value?.trim())
   email: string;
 }
+
 @Exclude()
 export class LoginRequestDto {
   @Expose()
@@ -31,7 +32,7 @@ export class LoginRequestDto {
   @IsNotEmpty()
   @IsString()
   @Transform(({ value }) => value?.trim())
-  userName: string;
+  username: string;
 
   @Expose()
   @ApiProperty({
