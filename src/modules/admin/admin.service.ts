@@ -118,9 +118,9 @@ export class AdminService {
     }
   }
 
-  async deleteAdmin(userId: string): Promise<void> {
+  async deleteAdmin(adminId: string): Promise<void> {
     try {
-      const deletedUser = await this.adminModel.model.findOneAndDelete({ _id: userId });
+      const deletedUser = await this.adminModel.model.findOneAndDelete({ _id: adminId });
 
       if (!deletedUser) {
         throw new BadRequestException('Admin not found');
