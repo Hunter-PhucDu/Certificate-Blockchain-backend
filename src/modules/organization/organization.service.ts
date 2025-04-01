@@ -1,178 +1,178 @@
-// import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-// import { OrganizationModel } from '../shared/models/organization.model';
-// import { EmailService } from '../email/email.service';
-// import { OrganizationRequestDto, UpdateOrganizationRequestDto, GetOrganizationsDto } from './dtos/request.dto';
-// import { OrganizationResponseDto } from './dtos/response.dto';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { OrganizationModel } from '../shared/models/organization.model';
+import { EmailService } from '../email/email.service';
+import { AddOrganizationRequestDto, UpdateOrganizationRequestDto, GetOrganizationsDto } from './dtos/request.dto';
+import { OrganizationResponseDto } from './dtos/response.dto';
 
-// import { AuthService } from '../auth/auth.service';
-// import { plainToInstance } from 'class-transformer';
-// import { unlinkSync } from 'fs';
-// import { join } from 'path';
-// import { generateRandomPassword } from 'modules/shared/utils/password.util';
+import { AuthService } from '../auth/auth.service';
+import { plainToInstance } from 'class-transformer';
+import { unlinkSync } from 'fs';
+import { join } from 'path';
+import { generateRandomPassword } from 'modules/shared/utils/password.util';
+import { TenantModel } from 'modules/shared/models/tenant.model';
+import { getPagination } from 'modules/shared/utils/get-pagination';
+import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
+import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 
-// @Injectable()
-// export class OrganizationService {
-//   constructor(
-//     private readonly organizationModel: OrganizationModel,
-//     private readonly emailService: EmailService,
-//     private readonly authService: AuthService,
-//   ) {}
+@Injectable()
+export class OrganizationService {
+  constructor(
+    private readonly organizationModel: OrganizationModel,
+    private readonly tenantModel: TenantModel,
+    private readonly emailService: EmailService,
+    private readonly authService: AuthService,
+  ) {}
 
-//   async createOrganization(
-//     createDto: OrganizationRequestDto,
-//     logo?: Express.Multer.File,
-//   ): Promise<OrganizationResponseDto> {
-//     try {
-//       const existingOrg = await this.organizationModel.findBySubdomain(createDto.subdomain);
-//       if (existingOrg) {
-//         throw new BadRequestException('Subdomain already exists');
-//       }
+  async addOrganization(addOrganizationDto: AddOrganizationRequestDto): Promise<OrganizationResponseDto> {
+    try {
+      const existingOrg = await this.organizationModel.model.findOne({
+        tenantId: addOrganizationDto.tenantId,
+        email: addOrganizationDto.email,
+      });
+      if (existingOrg) {
+        throw new BadRequestException('Organizatio already exists');
+      }
 
-//       const password = generateRandomPassword();
-//       const hashedPassword = await this.authService.hashPassword(password);
+      const password = generateRandomPassword();
+      const hashedPassword = await this.authService.hashPassword(password);
 
-//       let logoPath = '';
-//       if (logo) {
-//         logoPath = await this.handleLogoUpload(logo);
-//       }
+      const tenantDoc = await this.tenantModel.model.findById(addOrganizationDto.tenantId);
+      if (!tenantDoc) {
+        throw new BadRequestException('Tenant not found');
+      }
 
-//       const organization = await this.organizationModel.create({
-//         ...createDto,
-//         password: hashedPassword,
-//         logo: logoPath,
-//       });
+      const organization = await this.organizationModel.model.create({
+        ...addOrganizationDto,
+        password: hashedPassword,
+      });
 
-//       await this.emailService.sendOrganizationCredentials(createDto.email, createDto.subdomain, password);
+      await this.emailService.sendOrganizationCredentials(addOrganizationDto.email, tenantDoc.subdomain, password);
 
-//       return plainToInstance(OrganizationResponseDto, organization.toObject());
-//     } catch (error) {
-//       throw new BadRequestException(`Error creating organization: ${error.message}`);
-//     }
-//   }
+      return plainToInstance(OrganizationResponseDto, organization.toObject());
+    } catch (error) {
+      throw new BadRequestException(`Error creating organization: ${error.message}`);
+    }
+  }
 
-//   async getOrganizations(query: GetOrganizationsDto): Promise<{ items: OrganizationResponseDto[]; total: number }> {
-//     const { page = 1, search } = query;
-//     const limit = 10;
-//     const skip = (page - 1) * limit;
+  async getOrganizations(
+    paginationDto: GetOrganizationsDto,
+  ): Promise<ListRecordSuccessResponseDto<OrganizationResponseDto>> {
+    try {
+      const { page, size, search } = paginationDto;
+      const skip = (page - 1) * size;
 
-//     const filter: any = {};
-//     if (search) {
-//       filter['$or'] = [
-//         { name: { $regex: search, $options: 'i' } },
-//         { subdomain: { $regex: search, $options: 'i' } },
-//         { email: { $regex: search, $options: 'i' } },
-//       ];
-//     }
+      const searchCondition = search
+        ? {
+            $or: [
+              { organizationName: { $regex: new RegExp(search, 'i') } },
+              { email: { $regex: new RegExp(search, 'i') } },
+            ],
+          }
+        : {};
 
-//     const [items, total] = await Promise.all([
-//       this.organizationModel.model.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-//       this.organizationModel.model.countDocuments(filter),
-//     ]);
+      const [organizations, totalItem] = await Promise.all([
+        this.organizationModel.model.find(searchCondition).skip(skip).limit(size).exec(),
+        this.organizationModel.model.countDocuments(searchCondition),
+      ]);
 
-//     return {
-//       items: items.map((item) => plainToInstance(OrganizationResponseDto, item)),
-//       total,
-//     };
-//   }
+      const metadata: MetadataResponseDto = getPagination(size, page, totalItem);
+      const organizationResponseDtos: OrganizationResponseDto[] = plainToInstance(
+        OrganizationResponseDto,
+        organizations,
+      );
 
-//   async getOrganizationById(id: string): Promise<OrganizationResponseDto> {
-//     const organization = await this.organizationModel.findById(id);
-//     if (!organization) {
-//       throw new NotFoundException('Organization not found');
-//     }
-//     return plainToInstance(OrganizationResponseDto, organization.toObject());
-//   }
+      return {
+        metadata,
+        data: organizationResponseDtos,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Error getting organizations: ${error.message}`);
+    }
+  }
 
-//   async updateOrganization(
-//     id: string,
-//     updateDto: UpdateOrganizationRequestDto,
-//     logo?: Express.Multer.File,
-//   ): Promise<OrganizationResponseDto> {
-//     const organization = await this.organizationModel.findById(id);
-//     if (!organization) {
-//       throw new NotFoundException('Organization not found');
-//     }
+  async getOrganizationById(organizationId: string): Promise<OrganizationResponseDto> {
+    try {
+      const organization = await this.organizationModel.findById(organizationId);
+      if (!organization) {
+        throw new NotFoundException('Organization not found');
+      }
+      return plainToInstance(OrganizationResponseDto, organization.toObject());
+    } catch (error) {
+      throw new BadRequestException(`Error getting organization: ${error.message}`);
+    }
+  }
 
-//     let logoPath = organization.logo;
-//     if (logo) {
-//       // Xóa logo cũ nếu có
-//       if (organization.logo) {
-//         try {
-//           unlinkSync(join(process.cwd(), 'images', organization.logo));
-//         } catch (error) {
-//           console.error('Error deleting old logo:', error);
-//         }
-//       }
-//       logoPath = await this.handleLogoUpload(logo);
-//     }
+  async updateOrganization(
+    organizationId: string,
+    updateDto: UpdateOrganizationRequestDto,
+    logo?: Express.Multer.File,
+  ): Promise<OrganizationResponseDto> {
+    const organization = await this.organizationModel.findById(organizationId);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
 
-//     const updated = await this.organizationModel.updateById(id, {
-//       ...updateDto,
-//       logo: logoPath,
-//     });
+    let logoPath = organization.logo;
+    if (logo) {
+      if (organization.logo) {
+        try {
+          unlinkSync(join(process.cwd(), 'images', organization.logo));
+        } catch (error) {
+          console.error('Error deleting old logo:', error);
+        }
+      }
+      logoPath = await this.handleLogoUpload(logo);
+    }
 
-//     return plainToInstance(OrganizationResponseDto, updated.toObject());
-//   }
+    const updated = await this.organizationModel.model.findOneAndUpdate(
+      { _id: organizationId },
+      {
+        ...updateDto,
+        logo: logoPath,
+      },
+      { new: true },
+    );
 
-//   async deleteOrganization(id: string): Promise<void> {
-//     const organization = await this.organizationModel.findById(id);
-//     if (!organization) {
-//       throw new NotFoundException('Organization not found');
-//     }
+    return plainToInstance(OrganizationResponseDto, updated.toObject());
+  }
 
-//     // Xóa logo nếu có
-//     if (organization.logo) {
-//       try {
-//         unlinkSync(join(process.cwd(), 'images', organization.logo));
-//       } catch (error) {
-//         console.error('Error deleting logo:', error);
-//       }
-//     }
+  async deleteOrganization(id: string): Promise<void> {
+    const organization = await this.organizationModel.findById(id);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
 
-//     await this.organizationModel.model.findByIdAndDelete(id);
-//   }
+    if (organization.logo) {
+      try {
+        unlinkSync(join(process.cwd(), 'images', organization.logo));
+      } catch (error) {
+        console.error('Error deleting logo:', error);
+      }
+    }
 
-//   // async findBySubdomain(subdomain: string) {
-//   //   return this.organizationModel.findBySubdomain(subdomain);
-//   // }
+    await this.organizationModel.model.findByIdAndDelete(id);
+  }
 
-//   private async handleLogoUpload(file: Express.Multer.File): Promise<string> {
-//     const fileName = `${Date.now()}-${file.originalname}`;
-//     const filePath = join('logos', fileName);
+  private async handleLogoUpload(file: Express.Multer.File): Promise<string> {
+    const fileName = `${Date.now()}-${file.originalname}`;
+    const filePath = join('logos', fileName);
 
-//     // Lưu file vào thư mục images/logos
-//     await this.saveFile(file.buffer, join(process.cwd(), 'images', filePath));
+    await this.saveFile(file.buffer, join(process.cwd(), 'images', filePath));
 
-//     return filePath;
-//   }
+    return filePath;
+  }
 
-//   private async saveFile(buffer: Buffer, path: string): Promise<void> {
-//     // eslint-disable-next-line @typescript-eslint/no-var-requires
-//     const { writeFile } = require('fs/promises');
-//     // eslint-disable-next-line @typescript-eslint/no-var-requires
-//     const { mkdir } = require('fs/promises');
+  private async saveFile(buffer: Buffer, path: string): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { writeFile } = require('fs/promises');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { mkdir } = require('fs/promises');
 
-//     try {
-//       await mkdir(join(process.cwd(), 'images', 'logos'), { recursive: true });
-//       await writeFile(path, buffer);
-//     } catch (error) {
-//       throw new BadRequestException('Error saving file');
-//     }
-//   }
-
-//   async findBySubdomain(subdomain: string) {
-//     const organization = await this.organizationModel.model.findOne({ subdomain });
-//     if (!organization) {
-//       throw new NotFoundException('Organization not found');
-//     }
-//     return organization;
-//   }
-
-//   // async getOrganizationById(id: string): Promise<OrganizationResponseDto> {
-//   //   const organization = await this.organizationModel.findById(id);
-//   //   if (!organization) {
-//   //     throw new NotFoundException('Organization not found');
-//   //   }
-//   //   return organization;
-//   // }
-// }
+    try {
+      await mkdir(join(process.cwd(), 'images', 'logos'), { recursive: true });
+      await writeFile(path, buffer);
+    } catch (error) {
+      throw new BadRequestException('Error saving file');
+    }
+  }
+}

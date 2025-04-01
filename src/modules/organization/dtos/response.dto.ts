@@ -4,30 +4,66 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class OrganizationResponseDto {
   @Expose()
-  @ApiProperty()
-  _id: string;
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: 'tenant_organiationA',
+  })
+  tenantId: string;
 
   @Expose()
-  @ApiProperty()
-  organizationName: string;
+  @ApiProperty({
+    required: false,
+    type: String,
+    example: 'https://example.com/logo.png',
+  })
+  logo?: string;
 
   @Expose()
-  @ApiProperty()
-  subdomain: string;
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: 'Organization Name',
+  })
+  organizationName?: string;
 
   @Expose()
-  @ApiProperty()
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: 'org@example.com',
+  })
   email: string;
 
   @Expose()
-  @ApiProperty()
-  logo: string;
+  @ApiProperty({
+    required: false,
+    type: String,
+    example: '0909090909',
+  })
+  phone?: string;
 
   @Expose()
-  @ApiProperty()
+  @ApiProperty({
+    required: false,
+    type: String,
+    example: '123 Main St, VN',
+  })
+  address?: string;
+
+  @Expose()
+  @ApiProperty({
+    required: false,
+    type: Date,
+    example: '2021-01-01T00:00:00.000Z',
+  })
   createdAt: Date;
 
   @Expose()
-  @ApiProperty()
+  @ApiProperty({
+    required: false,
+    type: Date,
+    example: '2021-01-01T00:00:00.000Z',
+  })
   updatedAt: Date;
 }

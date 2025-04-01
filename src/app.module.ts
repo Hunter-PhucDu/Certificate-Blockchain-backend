@@ -10,6 +10,7 @@ import { BlockchainModule } from 'modules/blockchain/blockchain.module';
 import { join } from 'path';
 import { AuthModule } from 'modules/auth/auth.module';
 import { AdminModule } from 'modules/admin/admin.module';
+import { TenantModule } from 'modules/tenant/tenant.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AdminModule } from 'modules/admin/admin.module';
     // OrganizationModule,
     CertificateModule,
     BlockchainModule,
+    TenantModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'images'),
       serveRoot: '/images',
