@@ -1,10 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Exclude, Expose } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
+import { Exclude, Expose, Transform } from 'class-transformer';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 import { PaginationDto } from '../../shared/dtos/pagination.dto';
+import { IsEmailOrPhone } from 'modules/shared/decorators/is-email-or-phone.decorator';
 
 @Exclude()
-export class OrganizationRequestDto {
+export class AddOrganizationRequestDto {
+  @Expose()
+  @ApiProperty({
+    required: true,
+    example: '0x1234567890abcdef',
+  })
+  @IsString()
+  @IsNotEmpty()
+  tenantId: string;
+
   @Expose()
   @ApiProperty({
     required: true,
@@ -13,15 +23,6 @@ export class OrganizationRequestDto {
   @IsString()
   @IsNotEmpty()
   organizationName: string;
-
-  @Expose()
-  @ApiProperty({
-    required: true,
-    example: 'org-subdomain',
-  })
-  @IsString()
-  @IsNotEmpty()
-  subdomain: string;
 
   @Expose()
   @ApiProperty({
@@ -35,17 +36,34 @@ export class OrganizationRequestDto {
   @Expose()
   @ApiProperty({
     required: false,
-    type: 'object',
-    example: { field1: 'value1' },
+    type: String,
+    example: '0909090909',
   })
-  @IsObject()
+  @IsEmailOrPhone()
   @IsOptional()
-  customFields?: Record<string, any>;
+  phone?: string;
 
   @Expose()
-  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @ApiProperty({
+    required: false,
+    type: String,
+    example: '123 Main St, VN',
+  })
   @IsOptional()
-  logo?: Express.Multer.File;
+  address?: string;
+
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: '******',
+  })
+  @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
+  @Matches(/^[^\s]*$/, {
+    message: 'Password should not contain spaces.',
+  })
+  password: string;
 }
 
 @Exclude()
@@ -67,11 +85,21 @@ export class UpdateOrganizationRequestDto {
   @Expose()
   @ApiProperty({
     required: false,
-    example: 'new@example.com',
+    type: String,
+    example: '0909090909',
   })
-  @IsEmail()
+  @IsEmailOrPhone()
   @IsOptional()
-  email?: string;
+  phone?: string;
+
+  @Expose()
+  @ApiProperty({
+    required: false,
+    type: String,
+    example: '123 Main St, VN',
+  })
+  @IsOptional()
+  address?: string;
 }
 
 @Exclude()

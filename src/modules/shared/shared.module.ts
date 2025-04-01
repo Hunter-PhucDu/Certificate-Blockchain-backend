@@ -11,6 +11,7 @@ import { Organization, OrganizationSchema } from './schemas/organization.schema'
 import { Otp, OtpSchema } from './schemas/otp.schema';
 import { Certificate, CertificateSchema } from './schemas/certificate.schema';
 import { Admin, AdminSchema } from './schemas/admin.schema';
+import { Tenant, TenantSchema } from './schemas/tenant.schema';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { Admin, AdminSchema } from './schemas/admin.schema';
       { name: Organization.name, schema: OrganizationSchema },
       { name: Otp.name, schema: OtpSchema },
       { name: Certificate.name, schema: CertificateSchema },
+      { name: Tenant.name, schema: TenantSchema },
     ]),
     MailerModule.forRootAsync({
       imports: [ConfigModule],

@@ -30,7 +30,6 @@ export class LoginRequestDto {
     example: 'abc.example@gmail.com',
   })
   @IsNotEmpty()
-  @IsString()
   @Transform(({ value }) => value?.trim())
   username: string;
 
@@ -40,7 +39,6 @@ export class LoginRequestDto {
     required: true,
     example: '******',
   })
-  @IsString()
   @IsNotEmpty()
   @Transform(({ value }) => value?.trim())
   @MinLength(6, {
@@ -51,9 +49,8 @@ export class LoginRequestDto {
 
 @Exclude()
 export class ChangePasswordRequestDto {
-  @ApiProperty({ example: 'currentPassword' })
   @Expose()
-  @IsString()
+  @ApiProperty({ example: 'currentPassword' })
   @IsNotEmpty()
   password: string;
 
@@ -113,9 +110,8 @@ export class ResetPasswordByAdminRequestDto extends BaseRequestDto {
 
 @Exclude()
 export class RefreshTokenRequestDto {
-  @ApiProperty({ example: 'refreshToken' })
   @Expose()
-  @IsString()
+  @ApiProperty({ required: true, type: String, example: '0xabcd123' })
   @IsNotEmpty()
   refreshToken: string;
 }
