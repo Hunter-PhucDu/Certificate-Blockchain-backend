@@ -2,22 +2,30 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
 
 @Exclude()
-export class AdminResponseDto {
+export class TenantResponseDto {
   @Expose()
   @ApiProperty({
-    type: String,
     required: true,
-    example: 'Admin123',
+    type: String,
+    example: 'Organization Name',
   })
-  username: string;
+  organizationName: string;
 
   @Expose()
   @ApiProperty({
-    type: String,
     required: true,
-    example: 'example@gmail.com',
+    type: String,
+    example: 'teant_organiationA',
   })
-  email: string;
+  tenantName: string;
+
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: 'org-subdomain',
+  })
+  subdomain: string;
 
   @Expose()
   @ApiProperty({
