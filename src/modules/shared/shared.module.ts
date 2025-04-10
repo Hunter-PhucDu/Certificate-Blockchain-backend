@@ -12,6 +12,7 @@ import { Otp, OtpSchema } from './schemas/otp.schema';
 import { Certificate, CertificateSchema } from './schemas/certificate.schema';
 import { Admin, AdminSchema } from './schemas/admin.schema';
 import { Tenant, TenantSchema } from './schemas/tenant.schema';
+import { Group, GroupSchema } from './schemas/group.schema';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { Tenant, TenantSchema } from './schemas/tenant.schema';
       { name: Admin.name, schema: AdminSchema },
       { name: Organization.name, schema: OrganizationSchema },
       { name: Otp.name, schema: OtpSchema },
+      { name: Group.name, schema: GroupSchema },
       { name: Certificate.name, schema: CertificateSchema },
       { name: Tenant.name, schema: TenantSchema },
     ]),
