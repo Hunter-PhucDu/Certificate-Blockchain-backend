@@ -5,16 +5,18 @@ import { Certificate, CertificateDocument } from '../schemas/certificate.schema'
 
 @Injectable()
 export class CertificateModel {
-  constructor(@InjectModel(Certificate.name) public model: PaginateModel<CertificateDocument>) {}
+  constructor(
+    @InjectModel(Certificate.name)
+    public readonly model: PaginateModel<CertificateDocument>,
+  ) {}
+
+  async create(data: Partial<Certificate>): Promise<CertificateDocument> {
+    return this.model.create(data);
+  }
 
   async save(certificate: Certificate) {
     const createdCertificate = new this.model(certificate);
     return createdCertificate.save();
-  }
-
-  async create(data: Partial<Certificate>) {
-    const certificate = new this.model(data);
-    return certificate.save();
   }
 
   async findById(id: string) {
