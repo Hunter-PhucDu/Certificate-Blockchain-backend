@@ -21,7 +21,7 @@ export class CertificateController {
 
   @Post()
   @ApiSuccessResponse({ dataType: CreateCertificateResponseDto })
-  async createCertificate(@Body() createCertificateDto: CertificateRequestDto): Promise<CreateCertificateResponseDto> {
+  async createCertificate(@Body() createCertificateDto: CertificateRequestDto): Promise<string> {
     return await this.certificatesService.processCertificate(createCertificateDto);
   }
 

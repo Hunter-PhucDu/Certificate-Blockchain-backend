@@ -1,10 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class BlockfrostService {
-  private readonly logger = new Logger(BlockfrostService.name);
   private readonly baseUrl: string;
   private readonly apiKey: string;
 
@@ -34,13 +33,6 @@ export class BlockfrostService {
       if (error.response && error.response.status === 404) {
         return [];
       }
-
-      this.logger.error(`Error in getUTxOs: ${error.message}`);
-      if (error.response) {
-        this.logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-        this.logger.error(`Response status: ${error.response.status}`);
-      }
-
       throw error;
     }
   }
@@ -63,12 +55,6 @@ export class BlockfrostService {
         height: response.data.height,
       };
     } catch (error: any) {
-      this.logger.error(`Error in getCurrentSlot: ${error.message}`);
-      if (error.response) {
-        this.logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-        this.logger.error(`Response status: ${error.response.status}`);
-      }
-
       throw new Error('Error getting current slot: ' + (error.response?.data?.message || error.message));
     }
   }
@@ -89,12 +75,6 @@ export class BlockfrostService {
 
       return response.data;
     } catch (error: any) {
-      this.logger.error(`Error in submitTransaction: ${error.message}`);
-      if (error.response) {
-        this.logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-        this.logger.error(`Response status: ${error.response.status}`);
-      }
-
       if (error.response) {
         throw new Error(`Transaction submission failed: ${JSON.stringify(error.response.data)}`);
       } else if (error.request) {
@@ -108,17 +88,11 @@ export class BlockfrostService {
   async getTransaction(txHash: string): Promise<any> {
     try {
       const url = `${this.baseUrl}/txs/${txHash}`;
-      this.logger.log(`Fetching transaction info from URL: ${url}`);
       const response = await axios.get(url, {
         headers: { project_id: this.apiKey },
       });
       return response.data;
     } catch (error: any) {
-      this.logger.error(`Error fetching transaction info: ${error.message}`);
-      if (error.response) {
-        this.logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-        this.logger.error(`Response status: ${error.response.status}`);
-      }
       throw new Error(error.response?.data?.message || error.message);
     }
   }
@@ -126,8 +100,6 @@ export class BlockfrostService {
   async getTransactionMetadata(txHash: string): Promise<any> {
     try {
       const url = `${this.baseUrl}/txs/${txHash}/metadata`;
-      this.logger.log(`Fetching metadata from URL: ${url}`);
-
       const response = await axios.get(url, {
         headers: { project_id: this.apiKey },
       });
@@ -135,16 +107,8 @@ export class BlockfrostService {
       return response.data;
     } catch (error: any) {
       if (error.response && error.response.status === 404) {
-        this.logger.warn(`No metadata found for transaction: ${txHash}`);
         return [];
       }
-
-      this.logger.error(`Error fetching metadata for transaction ${txHash}: ${error.message}`);
-      if (error.response) {
-        this.logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-        this.logger.error(`Response status: ${error.response.status}`);
-      }
-
       throw new Error(`Error fetching metadata: ${error.response?.data?.message || error.message}`);
     }
   }

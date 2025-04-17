@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { blake2b } from 'blakejs';
 import * as Cardano from '@emurgo/cardano-serialization-lib-nodejs';
 import { BlockfrostService } from './blockfrost.service';
@@ -9,7 +9,6 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class BlockchainService {
-  private readonly logger = new Logger(BlockchainService.name);
   private readonly walletAddress: string;
 
   constructor(
@@ -21,10 +20,9 @@ export class BlockchainService {
     if (!this.walletAddress) {
       throw new Error('WALLET_ADDRESS not set in environment variables');
     }
-    this.logger.log(`Using wallet address: ${this.walletAddress}`);
   }
 
-  async buildAndSignTransaction(certData: CertificateRequestDto, privateKeyBech32: string): Promise<{ txId: string }> {
+  async buildAndSignTransaction(certData: CertificateRequestDto, privateKeyBech32: string): Promise<string> {
     const metadata = buildCertificateMetadata(certData);
     const fromAddress = this.walletAddress;
 
@@ -73,31 +71,22 @@ export class BlockchainService {
     const ttl = parseInt(currentSlotInfo.slot) + parseInt(this.configService.get('DEFAULT_TTL') || '7200');
     txBuilder.set_ttl(ttl);
 
-    // Thêm metadata vào transaction
     const auxData = Cardano.AuxiliaryData.new();
     auxData.set_metadata(metadata);
     txBuilder.set_auxiliary_data(auxData);
 
-    // Tính toán phí tối thiểu cần thiết
     const minFee = txBuilder.min_fee();
 
-    // Thêm phí buffer để đảm bảo đủ (thêm 10%)
-    // Thay vì sử dụng checked_div và checked_mul, ta sẽ tính toán theo cách khác
-    const bufferPercentage = 10; // 10%
+    const bufferPercentage = 10;
     const bufferValue = Math.floor((Number(minFee.to_str()) * bufferPercentage) / 100);
     const fee = Cardano.BigNum.from_str((Number(minFee.to_str()) + bufferValue).toString());
 
-    this.logger.log(`Minimum transaction fee: ${minFee.to_str()}, with buffer: ${fee.to_str()}`);
-
-    // Tính toán số tiền còn lại sau khi trừ phí
     const changeAmount = inputAmount.checked_sub(fee);
     const minUtxo = Cardano.BigNum.from_str(protocolParameters.minUtxo);
     if (changeAmount.compare(minUtxo) < 0) throw new Error('Insufficient funds after fee.');
 
-    // Thêm output thực tế - không cần xóa output trước đó vì chúng ta chưa thêm output nào
     txBuilder.add_output(Cardano.TransactionOutput.new(address, Cardano.Value.new(changeAmount)));
 
-    // Đặt phí đã tính toán
     txBuilder.set_fee(fee);
 
     const txBody = txBuilder.build();
@@ -110,11 +99,9 @@ export class BlockchainService {
     vkeys.add(vkeyWitness);
     witnessSet.set_vkeys(vkeys);
 
-    // Tạo transaction đã ký
     const signedTx = Cardano.Transaction.new(txBody, witnessSet, auxData);
     const txHex = Buffer.from(signedTx.to_bytes()).toString('hex');
 
-    // Submit transaction qua Blockfrost
     const txId = await this.blockfrostService.submitTransaction(txHex);
 
     // const blockId = await this.waitForTransactionConfirmation(txId);

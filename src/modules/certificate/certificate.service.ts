@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { CertificateRequestDto } from './dtos/request.dto';
 import { BlockfrostService } from 'modules/blockchain/blockfrost.service';
-import { CreateCertificateResponseDto } from './dtos/response.dto';
+//import { CreateCertificateResponseDto } from './dtos/response.dto';
 
 @Injectable()
 export class CertificateService {
@@ -14,10 +14,9 @@ export class CertificateService {
     private readonly blockfrostService: BlockfrostService,
   ) {}
 
-  async processCertificate(certificateData: CertificateRequestDto): Promise<CreateCertificateResponseDto> {
+  async processCertificate(certificateData: CertificateRequestDto): Promise<string> {
     const privateKey = await this.blockchainService.getPrivateKeyFromMnemonic();
-    const { txId } = await this.blockchainService.buildAndSignTransaction(certificateData, privateKey);
-    return { txId };
+    return await this.blockchainService.buildAndSignTransaction(certificateData, privateKey);
   }
 
   async getCertificateByTxHash(txHash: string): Promise<any> {
