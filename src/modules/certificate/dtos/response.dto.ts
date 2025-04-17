@@ -1,48 +1,66 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Transform } from 'class-transformer';
+import { Types } from 'mongoose';
+
+@Exclude()
+export class CreateCertificateResponseDto {
+  @Expose()
+  @ApiProperty({ example: '6c8be540a58ab69a3c0ca7643428ae367d43632ab558b57b87f37be5d91048ea' })
+  txId: string;
+}
 
 @Exclude()
 export class CertificateResponseDto {
   @Expose()
-  @ApiProperty({ example: '507f1f77bcf86cd799439011' })
-  _id: string;
+  @ApiProperty({ example: '60b9b4f5f5b9f5b9f5b9f5b9' })
+  @Transform(({ value }) => (value instanceof Types.ObjectId ? value.toString() : value))
+  id: string;
 
   @Expose()
-  @ApiProperty({ example: '507f1f77bcf86cd799439011' })
-  organizationId: string;
-
-  @Expose()
-  @ApiProperty({ example: '12345' })
+  @ApiProperty({ example: '8a09e4e9d34b2de93b7acd0d9bbea24b60fac11bccbba3945dcbd91c7418c1ce' })
   blockId: string;
 
   @Expose()
-  @ApiProperty({ example: '0x1234...' })
+  @ApiProperty({ example: '6c8be540a58ab69a3c0ca7643428ae367d43632ab558b57b87f37be5d91048ea' })
   transactionHash: string;
 
   @Expose()
-  @ApiProperty({
-    example: {
-      Upon: 'PHAM VAN A',
-      'Serial number:': '2025AH00001',
-      'Issue Date': '2024-03-14',
-      'Expiry Date': '2025-03-14',
-      'Certificate Type': 'Professional Certificate',
-      Program: 'Software Engineering',
-      Grade: 'Excellent',
-    },
-  })
-  certificateData: Record<string, any>;
+  @ApiProperty({ example: '60b9b4f5f5b9f5b9f5b9f5b9' })
+  @Transform(({ value }) => (value instanceof Types.ObjectId ? value.toString() : value))
+  groupId: string;
 
   @Expose()
-  @ApiProperty({ example: '2024-03-14T10:30:00.000Z' })
+  @ApiProperty({ example: "Bachelor's degree" })
+  certificateType: string;
+
+  @Expose()
+  @ApiProperty({
+    example: [
+      {
+        key: 'name',
+        values: [
+          {
+            label: 'Họ tên',
+            value: 'Nguyễn Văn A',
+            type: 'string',
+            isUnique: true,
+          },
+        ],
+      },
+    ],
+  })
+  certificateData: object[];
+
+  @Expose()
+  @ApiProperty({ example: '2023-05-01T00:00:00.000Z' })
   issuedDate: Date;
 
   @Expose()
-  @ApiProperty({ example: '2024-03-14T10:30:00.000Z' })
+  @ApiProperty({ example: '2023-05-01T00:00:00.000Z' })
   createdAt: Date;
 
   @Expose()
-  @ApiProperty({ example: '2024-03-14T10:30:00.000Z' })
+  @ApiProperty({ example: '2023-05-01T00:00:00.000Z' })
   updatedAt: Date;
 }
 

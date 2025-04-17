@@ -1,118 +1,150 @@
-import { Injectable, BadRequestException, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { blake2b } from 'blakejs';
+import * as Cardano from '@emurgo/cardano-serialization-lib-nodejs';
+import { BlockfrostService } from './blockfrost.service';
+import { KeyManagementService } from './key-management.service';
+import { CertificateRequestDto } from '../certificate/dtos/request.dto';
+import { buildCertificateMetadata } from './utils/metadata-builder';
 import { ConfigService } from '@nestjs/config';
-import Web3 from 'web3';
-import { Contract } from 'web3-eth-contract';
-import { CertificateContractABI } from './constants/contract.abi';
 
 @Injectable()
-export class BlockchainService implements OnModuleInit {
-  private web3: Web3;
-  private contract: Contract<typeof CertificateContractABI>;
+export class BlockchainService {
+  private readonly logger = new Logger(BlockchainService.name);
+  private readonly walletAddress: string;
 
-  constructor(private configService: ConfigService) {}
-
-  async onModuleInit() {
-    try {
-      this.web3 = new Web3(this.configService.get<string>('BLOCKCHAIN_RPC_URL'));
-
-      this.contract = new this.web3.eth.Contract(
-        CertificateContractABI,
-        this.configService.get<string>('BLOCKCHAIN_CONTRACT_ADDRESS'),
-      );
-
-      const privateKey = this.configService.get<string>('BLOCKCHAIN_PRIVATE_KEY');
-      if (!privateKey) {
-        throw new Error('Blockchain private key not configured');
-      }
-
-      const formattedPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
-
-      const account = this.web3.eth.accounts.privateKeyToAccount(formattedPrivateKey);
-      this.web3.eth.accounts.wallet.add(account);
-
-      await this.web3.eth.net.isListening();
-    } catch (error) {
-      throw new Error(`Blockchain initialization failed: ${error.message}`);
+  constructor(
+    private readonly blockfrostService: BlockfrostService,
+    private readonly keyManagementService: KeyManagementService,
+    private readonly configService: ConfigService,
+  ) {
+    this.walletAddress = this.configService.get<string>('WALLET_ADDRESS');
+    if (!this.walletAddress) {
+      throw new Error('WALLET_ADDRESS not set in environment variables');
     }
+    this.logger.log(`Using wallet address: ${this.walletAddress}`);
   }
 
-  async storeCertificate(data: any): Promise<{ blockId: string; transactionHash: string }> {
-    try {
-      if (!this.contract || !this.web3.eth.accounts.wallet[0]) {
-        throw new Error('Blockchain service not properly initialized');
-      }
+  async buildAndSignTransaction(certData: CertificateRequestDto, privateKeyBech32: string): Promise<{ txId: string }> {
+    const metadata = buildCertificateMetadata(certData);
+    const fromAddress = this.walletAddress;
 
-      const certificateHash = this.web3.utils.sha3(JSON.stringify(data));
-      if (!certificateHash) {
-        throw new Error('Failed to generate certificate hash');
-      }
+    const currentSlotInfo = await this.blockfrostService.getCurrentSlot();
+    const utxos = await this.blockfrostService.getUTxOs(fromAddress);
+    if (!utxos || utxos.length === 0) throw new Error('No UTxO found');
 
-      const tx = await this.contract.methods.storeCertificate(certificateHash).send({
-        from: this.web3.eth.accounts.wallet[0].address,
-        gas: '500000',
-      });
+    const protocolParameters = {
+      linearFee: { minFeeA: '44', minFeeB: '155381' },
+      minUtxo: '1000000',
+      poolDeposit: '500000000',
+      keyDeposit: '2000000',
+      maxTxSize: 16384,
+      maxValueSize: 5000,
+      coinsPerUtxoByte: '4310',
+    };
 
-      if (!tx.blockNumber || !tx.transactionHash) {
-        throw new Error('Transaction failed');
-      }
+    const linearFee = Cardano.LinearFee.new(
+      Cardano.BigNum.from_str(protocolParameters.linearFee.minFeeA),
+      Cardano.BigNum.from_str(protocolParameters.linearFee.minFeeB),
+    );
 
-      return {
-        blockId: tx.blockNumber.toString(),
-        transactionHash: tx.transactionHash,
-      };
-    } catch (error) {
-      throw new BadRequestException(`Blockchain error: ${error.message}`);
-    }
+    const txBuilderCfg = Cardano.TransactionBuilderConfigBuilder.new()
+      .fee_algo(linearFee)
+      .pool_deposit(Cardano.BigNum.from_str(protocolParameters.poolDeposit))
+      .key_deposit(Cardano.BigNum.from_str(protocolParameters.keyDeposit))
+      .coins_per_utxo_byte(Cardano.BigNum.from_str(protocolParameters.coinsPerUtxoByte))
+      .max_value_size(protocolParameters.maxValueSize)
+      .max_tx_size(protocolParameters.maxTxSize)
+      .build();
+
+    const txBuilder = Cardano.TransactionBuilder.new(txBuilderCfg);
+    const inputUtxo = utxos[0];
+
+    const address = Cardano.Address.from_bech32(fromAddress);
+    const txHash = Cardano.TransactionHash.from_bytes(Buffer.from(inputUtxo.tx_hash, 'hex'));
+    const outputIndex = parseInt(inputUtxo.output_index);
+    const txInput = Cardano.TransactionInput.new(txHash, outputIndex);
+    const inputAmount = Cardano.BigNum.from_str(inputUtxo.amount[0].quantity);
+    const inputValue = Cardano.Value.new(inputAmount);
+
+    const txInputsBuilder = Cardano.TxInputsBuilder.new();
+    txInputsBuilder.add_regular_input(address, txInput, inputValue);
+    txBuilder.set_inputs(txInputsBuilder);
+
+    const ttl = parseInt(currentSlotInfo.slot) + parseInt(this.configService.get('DEFAULT_TTL') || '7200');
+    txBuilder.set_ttl(ttl);
+
+    // Thêm metadata vào transaction
+    const auxData = Cardano.AuxiliaryData.new();
+    auxData.set_metadata(metadata);
+    txBuilder.set_auxiliary_data(auxData);
+
+    // Tính toán phí tối thiểu cần thiết
+    const minFee = txBuilder.min_fee();
+
+    // Thêm phí buffer để đảm bảo đủ (thêm 10%)
+    // Thay vì sử dụng checked_div và checked_mul, ta sẽ tính toán theo cách khác
+    const bufferPercentage = 10; // 10%
+    const bufferValue = Math.floor((Number(minFee.to_str()) * bufferPercentage) / 100);
+    const fee = Cardano.BigNum.from_str((Number(minFee.to_str()) + bufferValue).toString());
+
+    this.logger.log(`Minimum transaction fee: ${minFee.to_str()}, with buffer: ${fee.to_str()}`);
+
+    // Tính toán số tiền còn lại sau khi trừ phí
+    const changeAmount = inputAmount.checked_sub(fee);
+    const minUtxo = Cardano.BigNum.from_str(protocolParameters.minUtxo);
+    if (changeAmount.compare(minUtxo) < 0) throw new Error('Insufficient funds after fee.');
+
+    // Thêm output thực tế - không cần xóa output trước đó vì chúng ta chưa thêm output nào
+    txBuilder.add_output(Cardano.TransactionOutput.new(address, Cardano.Value.new(changeAmount)));
+
+    // Đặt phí đã tính toán
+    txBuilder.set_fee(fee);
+
+    const txBody = txBuilder.build();
+    const privateKey = Cardano.PrivateKey.from_bech32(privateKeyBech32);
+
+    const txBodyHash = Cardano.TransactionHash.from_bytes(blake2b(txBody.to_bytes(), null, 32));
+    const witnessSet = Cardano.TransactionWitnessSet.new();
+    const vkeyWitness = Cardano.make_vkey_witness(txBodyHash, privateKey);
+    const vkeys = Cardano.Vkeywitnesses.new();
+    vkeys.add(vkeyWitness);
+    witnessSet.set_vkeys(vkeys);
+
+    // Tạo transaction đã ký
+    const signedTx = Cardano.Transaction.new(txBody, witnessSet, auxData);
+    const txHex = Buffer.from(signedTx.to_bytes()).toString('hex');
+
+    // Submit transaction qua Blockfrost
+    const txId = await this.blockfrostService.submitTransaction(txHex);
+
+    // const blockId = await this.waitForTransactionConfirmation(txId);
+    return txId;
   }
 
-  async verifyCertificate(blockId: string, transactionHash: string): Promise<boolean> {
-    try {
-      if (!this.web3) {
-        throw new Error('Blockchain service not properly initialized');
-      }
+  // private async waitForTransactionConfirmation(txId: string, maxAttempts = 3, delayMs = 4000): Promise<string> {
+  //   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  //     try {
+  //       const txInfo = await this.blockfrostService.getTransaction(txId);
+  //       if (txInfo && txInfo.block) {
+  //         return txInfo.block;
+  //       }
+  //     } catch (e) {
+  //       this.logger.warn(`Attempt ${attempt + 1}: Transaction info not available yet.`);
+  //     }
+  //     await new Promise((resolve) => setTimeout(resolve, delayMs));
+  //   }
+  //   throw new Error(`Transaction ${txId} not confirmed within expected time.`);
+  // }
 
-      const receipt = await this.web3.eth.getTransactionReceipt(transactionHash);
-      if (!receipt) {
-        throw new Error('Transaction receipt not found');
-      }
-
-      if (receipt.blockNumber.toString() !== blockId) {
-        return false;
-      }
-
-      return Number(receipt.status) === 1;
-    } catch (error) {
-      throw new BadRequestException(`Verification error: ${error.message}`);
+  async getPrivateKeyFromMnemonic(): Promise<string> {
+    const mnemonic = this.configService.get<string>('MNEMONIC');
+    if (!mnemonic) {
+      throw new Error('MNEMONIC not set in env');
     }
+    return this.keyManagementService.getPrivateKeyFromMnemonic(mnemonic);
   }
 
-  async getCertificateData(transactionHash: string): Promise<any> {
-    try {
-      if (!this.web3 || !this.contract) {
-        throw new Error('Blockchain service not properly initialized');
-      }
-
-      const tx = await this.web3.eth.getTransaction(transactionHash);
-      if (!tx) {
-        throw new Error('Transaction not found');
-      }
-
-      const decodedData = await this.contract.methods.decodeCertificateData(tx.input).call();
-      if (!decodedData || typeof decodedData !== 'string') {
-        throw new Error('Decoded data is not a valid string');
-      }
-      return JSON.parse(decodedData);
-    } catch (error) {
-      throw new BadRequestException(`Error getting certificate data: ${error.message}`);
-    }
-  }
-
-  async checkConnection(): Promise<boolean> {
-    try {
-      await this.web3.eth.net.isListening();
-      return true;
-    } catch {
-      return false;
-    }
+  getWalletAddress(): string {
+    return this.walletAddress;
   }
 }
