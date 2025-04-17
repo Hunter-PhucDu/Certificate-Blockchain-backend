@@ -1,11 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import * as bip39 from 'bip39';
 import * as Cardano from '@emurgo/cardano-serialization-lib-nodejs';
 
 @Injectable()
 export class KeyManagementService {
-  private readonly logger = new Logger(KeyManagementService.name);
-
   // eslint-disable-next-line @typescript-eslint/require-await
   async getPrivateKeyFromMnemonic(mnemonic: string): Promise<string> {
     if (!bip39.validateMnemonic(mnemonic)) {
@@ -13,11 +11,10 @@ export class KeyManagementService {
     }
 
     const entropy = bip39.mnemonicToEntropy(mnemonic);
-    this.logger.log(`Mnemonic Entropy: ${entropy}`);
 
     const seed = Cardano.Bip32PrivateKey.from_bip39_entropy(Buffer.from(entropy, 'hex'), Buffer.from(''));
 
-    // Dẫn xuất theo con đường m/1852'/1815'/0'/0/0 (hardened derivation)
+    // m/1852'/1815'/0'/0/0 (hardened derivation)
     const accountKey = seed
       .derive(1852 | 0x80000000)
       .derive(1815 | 0x80000000)
@@ -26,9 +23,6 @@ export class KeyManagementService {
     const utxoKey = accountKey.derive(0).derive(0);
     const privateKey = utxoKey.to_raw_key();
     const privateKeyBech32 = privateKey.to_bech32();
-
-    this.logger.log(`Private Key (Hex): ${privateKey.to_hex()}`);
-    this.logger.log(`Private Key (Bech32): ${privateKeyBech32}`);
 
     return privateKeyBech32;
   }
