@@ -1,21 +1,60 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose, Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { PaginationDto } from '../../shared/dtos/pagination.dto';
 
-export class CertificateFieldDto {
-  @ApiProperty({ example: 'Upon' })
-  @IsString()
+export class CertificateValueDto {
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+  })
+  @IsNotEmpty()
+  label: string;
+
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+  })
+  @IsNotEmpty()
+  value: string;
+
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+  })
+  @IsNotEmpty()
+  type: string;
+
+  @Expose()
+  @ApiProperty({
+    required: false,
+    type: Boolean,
+    default: false,
+  })
+  @IsOptional()
+  isUnique?: boolean;
+}
+
+export class CertificateDataDto {
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+  })
   @IsNotEmpty()
   key: string;
 
-  @ApiProperty({ example: 'PHAM VAN A' })
-  @IsNotEmpty()
-  value: any;
-
-  @ApiProperty({ example: true })
-  @IsOptional()
-  isUnique?: boolean;
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: () => CertificateValueDto,
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CertificateValueDto)
+  values: CertificateValueDto[];
 }
 
 @Exclude()
@@ -33,34 +72,25 @@ export class CertificateRequestDto {
 
   @Expose()
   @ApiProperty({
-    type: [CertificateFieldDto],
-    example: [
-      { key: 'Upon', value: 'PHAM VAN A' },
-      { key: 'Serial number:', value: '2025AH00001' },
-    ],
+    required: true,
+    type: () => CertificateDataDto,
   })
-  @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => CertificateFieldDto)
-  certificateData: CertificateFieldDto[];
+  @Type(() => CertificateDataDto)
+  certificateData: CertificateDataDto[];
 }
 
 @Exclude()
 export class UpdateCertificateDto {
   @Expose()
   @ApiProperty({
-    type: [CertificateFieldDto],
-    example: [
-      { key: 'Upon', value: 'PHAM VAN A' },
-      { key: 'Serial number:', value: '2025AH00001' },
-    ],
+    required: true,
+    type: () => CertificateDataDto,
   })
-  @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => CertificateFieldDto)
-  certificateData: CertificateFieldDto[];
+  @Type(() => CertificateDataDto)
+  certificateData: CertificateDataDto[];
 }
 
 @Exclude()
@@ -70,13 +100,4 @@ export class GetCertificatesRequestDto extends PaginationDto {
   @IsOptional()
   @IsString()
   search?: string;
-}
-
-@Exclude()
-export class ValidateCertificateDto {
-  @Expose()
-  @ApiProperty({ example: '2025AH00001' })
-  @IsString()
-  @IsNotEmpty()
-  serialNumber: string;
 }
