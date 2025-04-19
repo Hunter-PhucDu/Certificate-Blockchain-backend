@@ -1,59 +1,83 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CertificateService } from './certificate.service';
-import { CertificateRequestDto } from './dtos/request.dto';
-import { KeyManagementService } from 'modules/blockchain/key-management.service';
-import { ApiTags } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config';
-import { CreateCertificateResponseDto } from './dtos/response.dto';
-import { ApiSuccessResponse } from 'modules/shared/decorators/api-success-response.decorator';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-require('dotenv').config();
+import { CreateCertificateRequestDto, GetCertificatesRequestDto, UpdateCertificateDto } from './dtos/request.dto';
+import { CertificateResponseDto } from './dtos/response.dto';
+import {
+  ApiSuccessResponse,
+  ApiSuccessPaginationResponse,
+} from 'modules/shared/decorators/api-success-response.decorator';
+import { JwtAuthGuard } from 'modules/shared/gaurds/jwt.guard';
+import { RolesGuard } from 'modules/shared/gaurds/role.gaurd';
+import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
+import { ValidateObjectId } from 'modules/shared/validators/id.validator';
+import { Roles } from 'modules/shared/decorators/role.decorator';
+import { ERole } from 'modules/shared/enums/auth.enum';
 
 @Controller('certificates')
 @ApiTags('Certificates')
 export class CertificateController {
-  constructor(
-    private readonly certificatesService: CertificateService,
-    private readonly keyManagementService: KeyManagementService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly certificateService: CertificateService) {}
 
   @Post()
-  @ApiSuccessResponse({ dataType: CreateCertificateResponseDto })
-  async createCertificate(@Body() createCertificateDto: CertificateRequestDto): Promise<string> {
-    return await this.certificatesService.processCertificate(createCertificateDto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ORGANIZATION])
+  @ApiOperation({ summary: 'Create new certificate' })
+  @ApiSuccessResponse({ dataType: CertificateResponseDto })
+  async createCertificate(@Body() createCertificateDto: CreateCertificateRequestDto): Promise<CertificateResponseDto> {
+    return this.certificateService.createCertificate(createCertificateDto);
   }
 
-  @Get('validate-wallet')
-  async validateWallet() {
-    const mnemonic = this.configService.get<string>('MNEMONIC');
-    const walletAddress = this.configService.get<string>('WALLET_ADDRESS');
-
-    if (!mnemonic || !walletAddress) {
-      return {
-        message: 'Lỗi: MNEMONIC hoặc WALLET_ADDRESS chưa được cấu hình.',
-        success: false,
-      };
-    }
-
-    const isValid = await this.keyManagementService.validatePrivateKeyWithMnemonic(mnemonic, walletAddress);
-
-    if (isValid) {
-      return {
-        message: 'Private Key chính xác với WALLET_ADDRESS.',
-        success: true,
-      };
-    } else {
-      return {
-        message: 'Private Key không khớp với WALLET_ADDRESS.',
-        success: false,
-      };
-    }
+  @Put(':certificateId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ORGANIZATION])
+  @ApiOperation({ summary: 'Update certificate' })
+  @ApiSuccessResponse({ dataType: CertificateResponseDto })
+  async updateCertificate(
+    @Param('certificateId', new ValidateObjectId()) certificateId: string,
+    @Body() updateDto: UpdateCertificateDto,
+  ): Promise<CertificateResponseDto> {
+    return this.certificateService.updateCertificate(certificateId, updateDto);
   }
 
-  @Get(':txHash')
-  async getCertificate(@Param('txHash') txHash: string) {
-    return await this.certificatesService.getCertificateByTxHash(txHash);
+  @Get('tx/:txHash')
+  @ApiOperation({ summary: 'Get certificate metadata by transaction hash' })
+  async getCertificateByTxHash(@Param('txHash') txHash: string) {
+    return await this.certificateService.getCertificateByTxHash(txHash);
+  }
+
+  @Get(':certificateId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ORGANIZATION, ERole.SUPER_ADMIN])
+  @ApiOperation({ summary: 'Get certificate by ID' })
+  @ApiSuccessResponse({ dataType: CertificateResponseDto })
+  async getCertificate(
+    @Param('certificateId', new ValidateObjectId()) certificateId: string,
+  ): Promise<CertificateResponseDto> {
+    return this.certificateService.getCertificateById(certificateId);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ORGANIZATION, ERole.SUPER_ADMIN])
+  @ApiOperation({ summary: 'Get all certificates', description: 'Get all certificates by search' })
+  @ApiSuccessPaginationResponse({ dataType: CertificateResponseDto })
+  async getCertificates(
+    @Query() getCertificatesDto: GetCertificatesRequestDto,
+  ): Promise<ListRecordSuccessResponseDto<CertificateResponseDto>> {
+    return this.certificateService.getCertificates(getCertificatesDto);
+  }
+
+  @Delete(':certificateId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ORGANIZATION])
+  @ApiOperation({ summary: 'Delete certificate' })
+  async deleteCertificate(@Param('certificateId', new ValidateObjectId()) certificateId: string): Promise<void> {
+    return this.certificateService.deleteCertificate(certificateId);
   }
 }

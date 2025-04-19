@@ -3,5 +3,4 @@ export enum ECertificateType {
   NUMBER = 'Number',
   BOOLEAN = 'Boolean',
   DATE = 'Date',
-  ARRAY = 'Array',
 }

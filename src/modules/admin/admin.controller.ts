@@ -21,12 +21,12 @@ import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-su
 
 @Controller('admins')
 @ApiTags('Admin')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Post('')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
   @Roles([ERole.SUPER_ADMIN])
   @ApiOperation({
     summary: 'Add new admin',
@@ -42,6 +42,9 @@ export class AdminController {
   }
 
   @Patch('')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
   @ApiOperation({
     summary: 'Update username',
     description: 'Update username',
@@ -53,6 +56,9 @@ export class AdminController {
   }
 
   @Get('')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
   @ApiOperation({
     summary: 'Get admin details',
     description: 'Get admin details',
@@ -79,6 +85,9 @@ export class AdminController {
   }
 
   @Put('change-password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
   @ApiOperation({
     summary: 'Change password',
     description: 'Change password admin',
@@ -89,6 +98,9 @@ export class AdminController {
   }
 
   @Delete(':adminId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.SUPER_ADMIN])
   @ApiOperation({
     summary: 'Delete admin',
     description: 'Delete admin',
