@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Exclude, Expose, Transform } from 'class-transformer';
-import { Types } from 'mongoose';
+import { Exclude, Expose, Transform, Type } from 'class-transformer';
+import { CertificateDataDto } from './request.dto';
 
 @Exclude()
 export class CreateCertificateResponseDto {
@@ -12,21 +12,21 @@ export class CreateCertificateResponseDto {
 @Exclude()
 export class CertificateResponseDto {
   @Expose()
-  @ApiProperty({ example: '60b9b4f5f5b9f5b9f5b9f5b9' })
-  @Transform(({ value }) => (value instanceof Types.ObjectId ? value.toString() : value))
+  @Transform(({ obj }) => obj._id.toString())
+  @ApiProperty({ example: '660d46b09b4b6a001f841b1e' })
   id: string;
 
   @Expose()
-  @ApiProperty({ example: '8a09e4e9d34b2de93b7acd0d9bbea24b60fac11bccbba3945dcbd91c7418c1ce' })
+  @ApiProperty({ example: 'block123' })
   blockId: string;
 
   @Expose()
   @ApiProperty({ example: '6c8be540a58ab69a3c0ca7643428ae367d43632ab558b57b87f37be5d91048ea' })
-  transactionHash: string;
+  txHash: string;
 
   @Expose()
-  @ApiProperty({ example: '60b9b4f5f5b9f5b9f5b9f5b9' })
-  @Transform(({ value }) => (value instanceof Types.ObjectId ? value.toString() : value))
+  @Transform(({ value }) => (value ? value.toString() : value))
+  @ApiProperty({ example: '660d46b09b4b6a001f841b1e' })
   groupId: string;
 
   @Expose()
@@ -34,33 +34,16 @@ export class CertificateResponseDto {
   certificateType: string;
 
   @Expose()
-  @ApiProperty({
-    example: [
-      {
-        key: 'name',
-        values: [
-          {
-            label: 'Họ tên',
-            value: 'Nguyễn Văn A',
-            type: 'string',
-            isUnique: true,
-          },
-        ],
-      },
-    ],
-  })
-  certificateData: object[];
+  @ApiProperty({ type: [CertificateDataDto] })
+  @Type(() => CertificateDataDto)
+  certificateData: CertificateDataDto[];
 
   @Expose()
-  @ApiProperty({ example: '2023-05-01T00:00:00.000Z' })
-  issuedDate: Date;
-
-  @Expose()
-  @ApiProperty({ example: '2023-05-01T00:00:00.000Z' })
+  @ApiProperty({ example: '2023-09-23T15:30:00.000Z' })
   createdAt: Date;
 
   @Expose()
-  @ApiProperty({ example: '2023-05-01T00:00:00.000Z' })
+  @ApiProperty({ example: '2023-09-23T15:30:00.000Z' })
   updatedAt: Date;
 }
 

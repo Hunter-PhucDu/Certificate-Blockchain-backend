@@ -1,7 +1,7 @@
 import * as Cardano from '@emurgo/cardano-serialization-lib-nodejs';
-import { CertificateRequestDto } from 'modules/certificate/dtos/request.dto';
+import { BlockchainRequestDto } from 'modules/certificate/dtos/request.dto';
 
-export function buildCertificateMetadata(certData: CertificateRequestDto): Cardano.GeneralTransactionMetadata {
+export function buildCertificateMetadata(certData: BlockchainRequestDto): Cardano.GeneralTransactionMetadata {
   const metadataMap = Cardano.MetadataMap.new();
 
   if (!certData.certificateType || certData.certificateType.length === 0) {

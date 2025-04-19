@@ -1,8 +1,5 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { ConfigModule } from '@nestjs/config';
-import configuration from 'config/configuration';
-import appConfig from 'config/app.config';
 import { EmailModule } from 'modules/email/email.module';
 import { SharedModule } from 'modules/shared/shared.module';
 import { CertificateModule } from 'modules/certificate/certificate.module';
@@ -11,25 +8,31 @@ import { AuthModule } from 'modules/auth/auth.module';
 import { AdminModule } from 'modules/admin/admin.module';
 import { TenantModule } from 'modules/tenant/tenant.module';
 import { BlockchainModule } from 'modules/blockchain/blockchain.module';
+import { GroupModule } from 'modules/group/group.module';
+import { TenantMiddleware } from 'modules/shared/middlewares/tenant.middleware';
+import { OrganizationModule } from 'modules/organization/organization.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      load: [configuration, appConfig],
-    }),
     SharedModule,
     AuthModule,
     AdminModule,
+    OrganizationModule,
     EmailModule,
-    // OrganizationModule,
     CertificateModule,
     BlockchainModule,
     TenantModule,
+    GroupModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'images'),
       serveRoot: '/images',
     }),
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(TenantMiddleware)
+      .forRoutes({ path: 'groups*', method: RequestMethod.ALL }, { path: 'certificates*', method: RequestMethod.ALL });
+  }
+}

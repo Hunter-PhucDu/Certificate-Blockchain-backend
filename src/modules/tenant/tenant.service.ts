@@ -18,39 +18,6 @@ export class TenantService {
     @InjectConnection() private readonly db: Connection,
   ) {}
 
-  // async addTenant(addTenantDto: AddTenantRequestDto): Promise<TenantResponseDto> {
-  //   const session = await this.tenantModel.model.db.startSession();
-  //   session.startTransaction();
-
-  //   try {
-  //     const { tenantName, subdomain } = addTenantDto;
-  //     const existedTenant = await this.tenantModel.model.findOne({ tenantName, subdomain });
-
-  //     if (existedTenant) {
-  //       throw new BadRequestException('Tenant name or subdomain has been registered.');
-  //     }
-
-  //     const newDbName = `tenant_${tenantName.replace(/\s+/g, '_').toLowerCase()}`;
-  //     const newDb = this.db.useDb(newDbName);
-
-  //     await newDb.createCollection('Certificates');
-
-  //     const newUser = await this.tenantModel.save({
-  //       ...addTenantDto,
-  //       status: EStatus.ACTIVE,
-  //     });
-
-  //     await session.commitTransaction();
-
-  //     return plainToInstance(TenantResponseDto, newUser.toObject());
-  //   } catch (e) {
-  //     await session.abortTransaction();
-  //     throw e;
-  //   } finally {
-  //     session.endSession();
-  //   }
-  // }
-
   async addTenant(addTenantDto: AddTenantRequestDto): Promise<TenantResponseDto> {
     const session = await this.db.startSession();
     session.startTransaction();
@@ -70,7 +37,6 @@ export class TenantService {
         status: EStatus.ACTIVE,
       }).save({ session });
 
-      // Tạo một database mới với tên tenant
       const newDbName = `tenant_${tenantName.replace(/\s+/g, '_').toLowerCase()}`;
 
       const dbList = await this.db.db.admin().listDatabases();
@@ -80,8 +46,8 @@ export class TenantService {
 
       newDb = this.db.useDb(newDbName);
 
-      // Tạo collection mặc định
       await newDb.createCollection('Certificates');
+      await newDb.createCollection('Groups');
       newDbCreated = true;
 
       await session.commitTransaction();
@@ -89,7 +55,6 @@ export class TenantService {
     } catch (e) {
       await session.abortTransaction();
 
-      // Nếu database tenant mới đã được tạo, thực hiện xoá để tránh dư dữ liệu
       if (newDbCreated && newDb) {
         try {
           await newDb.dropDatabase();
@@ -161,6 +126,15 @@ export class TenantService {
     };
   }
 
+  async getAllTenants(): Promise<TenantResponseDto[]> {
+    try {
+      const tenants = await this.tenantModel.model.find({ status: EStatus.ACTIVE }).exec();
+      return plainToInstance(TenantResponseDto, tenants);
+    } catch (error) {
+      throw new BadRequestException(`Error getting all tenants: ${error.message}`);
+    }
+  }
+
   async getUnusedTenants(
     paginationDto: GetTenantsRequestDto,
   ): Promise<ListRecordSuccessResponseDto<TenantResponseDto>> {
@@ -206,6 +180,19 @@ export class TenantService {
       }
     } catch (error) {
       throw new BadRequestException(`Error while deleting tenant: ${error.message}`);
+    }
+  }
+
+  async findBySubdomain(subdomain: string): Promise<TenantResponseDto> {
+    try {
+      const tenantDoc = await this.tenantModel.model.findOne({ subdomain });
+
+      if (!tenantDoc) {
+        throw new BadRequestException('Tenant not found');
+      }
+      return plainToInstance(TenantResponseDto, tenantDoc.toObject());
+    } catch (error) {
+      throw new BadRequestException(`Error while getting tenant:${subdomain}-> ${error.message}`);
     }
   }
 }

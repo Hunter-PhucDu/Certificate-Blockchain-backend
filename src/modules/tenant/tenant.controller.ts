@@ -76,7 +76,7 @@ export class TenantController {
   }
 
   @Get('')
-  @Roles([ERole.SUPER_ADMIN])
+  @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({

@@ -44,9 +44,7 @@ export class OrganizationController {
   @Get(':organizationId')
   @Roles([ERole.SUPER_ADMIN, ERole.ORGANIZATION])
   @ApiOperation({ summary: 'Get organization by id' })
-  async getOrganization(
-    @Param('organizationId', new ValidateObjectId()) organizationId: string,
-  ): Promise<OrganizationResponseDto> {
+  async getOrganization(@Param('organizationId') organizationId: string): Promise<OrganizationResponseDto> {
     return this.organizationService.getOrganizationById(organizationId);
   }
 
