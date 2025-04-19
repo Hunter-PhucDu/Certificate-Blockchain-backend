@@ -35,7 +35,7 @@ export class CertificateValueDto {
     default: false,
   })
   @IsOptional()
-  isUnique?: boolean;
+  isUnique: boolean;
 }
 
 export class CertificateDataDto {
@@ -58,7 +58,7 @@ export class CertificateDataDto {
 }
 
 @Exclude()
-export class CertificateRequestDto {
+export class BlockchainRequestDto {
   @Expose()
   @ApiProperty({
     type: String,
@@ -74,6 +74,40 @@ export class CertificateRequestDto {
   @ApiProperty({
     required: true,
     type: () => CertificateDataDto,
+    isArray: true,
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CertificateDataDto)
+  certificateData: CertificateDataDto[];
+}
+
+@Exclude()
+export class CreateCertificateRequestDto {
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: '660d46b09b4b6a001f841b1e',
+  })
+  @IsNotEmpty()
+  groupId: string;
+
+  @Expose()
+  @ApiProperty({
+    type: String,
+    required: true,
+    description: 'Type of the certificate',
+    example: "Bachelor's degree",
+  })
+  @IsString()
+  @IsNotEmpty()
+  certificateType: string;
+
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: () => CertificateDataDto,
+    isArray: true,
   })
   @ValidateNested({ each: true })
   @Type(() => CertificateDataDto)
@@ -86,6 +120,7 @@ export class UpdateCertificateDto {
   @ApiProperty({
     required: true,
     type: () => CertificateDataDto,
+    isArray: true,
   })
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

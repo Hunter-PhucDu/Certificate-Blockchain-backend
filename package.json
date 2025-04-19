@@ -1,5 +1,5 @@
 {
-  "name": "clb-lap-trinh",
+  "name": "certificate-on-chain",
   "version": "0.0.1",
   "description": "",
   "author": "Phuc Du",
@@ -31,6 +31,7 @@
     "@nestjs/mongoose": "^10.0.1",
     "@nestjs/passport": "^10.0.2",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/schedule": "^6.0.0",
     "@nestjs/serve-static": "^4.0.0",
     "@nestjs/swagger": "^7.1.13",
     "@types/node": "^22.14.1",
