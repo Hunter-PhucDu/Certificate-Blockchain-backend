@@ -3,7 +3,7 @@ import { blake2b } from 'blakejs';
 import * as Cardano from '@emurgo/cardano-serialization-lib-nodejs';
 import { BlockfrostService } from './blockfrost.service';
 import { KeyManagementService } from './key-management.service';
-import { CertificateRequestDto } from '../certificate/dtos/request.dto';
+import { BlockchainRequestDto } from '../certificate/dtos/request.dto';
 import { buildCertificateMetadata } from './utils/metadata-builder';
 import { ConfigService } from '@nestjs/config';
 
@@ -22,7 +22,7 @@ export class BlockchainService {
     }
   }
 
-  async buildAndSignTransaction(certData: CertificateRequestDto, privateKeyBech32: string): Promise<string> {
+  async buildAndSignTransaction(certData: BlockchainRequestDto, privateKeyBech32: string): Promise<string> {
     const metadata = buildCertificateMetadata(certData);
     const fromAddress = this.walletAddress;
 

@@ -40,8 +40,6 @@ export class Otp extends Document {
 export const OtpSchema = SchemaFactory.createForClass(Otp);
 OtpSchema.plugin(mongoosePaginate);
 
-// Tự động xóa OTP hết hạn
 OtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-// Index để tìm kiếm nhanh
 OtpSchema.index({ accountId: 1, type: 1 });
 OtpSchema.index({ verificationToken: 1 }, { sparse: true });

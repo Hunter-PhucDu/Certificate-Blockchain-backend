@@ -1,9 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Schema as MongooseSchema, Document, Types } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import mongoosePaginate from 'mongoose-paginate-v2';
+import { ECertificateType } from '../enums/certificateType';
 
 export type CertificateDocument = Certificate & Document;
-
 @Schema({
   collection: 'Certificates',
   timestamps: {
@@ -12,39 +12,44 @@ export type CertificateDocument = Certificate & Document;
   },
 })
 export class Certificate {
-  @Prop({ type: String, required: true, index: true })
+  @Prop({ type: String, required: false, index: true, default: 'pending' })
   blockId: string;
 
   @Prop({ type: String, required: true, index: true })
-  transactionHash: string;
+  txHash: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Organization', required: true, index: true })
-  organizationId: Types.ObjectId;
-
-  @Prop({ type: Date, required: true })
-  issuedDate: Date;
+  @Prop({ type: Types.ObjectId, ref: 'Groups', required: true, index: true })
+  groupId: Types.ObjectId;
 
   @Prop({ type: String, required: true })
   certificateType: string;
 
-  @Prop({ type: [String], required: true, default: [] })
-  uniqueFields: string[];
-
-  @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
-  certificateData: Record<string, any>;
+  @Prop({
+    type: [
+      {
+        key: { type: String, required: true },
+        values: [
+          {
+            label: { type: String, required: true },
+            value: { type: String, required: true },
+            type: {
+              type: String,
+              enum: Object.values(ECertificateType),
+              required: true,
+              default: ECertificateType.STRING,
+            },
+            isUnique: { type: Boolean, required: true, default: false },
+          },
+        ],
+      },
+    ],
+    default: [],
+  })
+  certificateData: object[];
 }
 
 export const CertificateSchema = SchemaFactory.createForClass(Certificate);
 
 CertificateSchema.plugin(mongoosePaginate);
 
-CertificateSchema.pre<CertificateDocument>('save', function (next) {
-  const doc = this as CertificateDocument;
-
-  if (!doc.issuedDate) {
-    doc.issuedDate = new Date();
-    doc.issuedDate.setHours(0, 0, 0, 0);
-  }
-
-  next();
-});
+CertificateSchema.index({ groupId: 1, certificateType: 1 });
