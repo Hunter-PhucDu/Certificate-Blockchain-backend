@@ -13,6 +13,7 @@ import { TenantModel } from 'modules/shared/models/tenant.model';
 import { getPagination } from 'modules/shared/utils/get-pagination';
 import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
+import { ERole } from 'modules/shared/enums/auth.enum';
 
 @Injectable()
 export class OrganizationService {
@@ -43,6 +44,7 @@ export class OrganizationService {
 
       const organization = await this.organizationModel.model.create({
         ...addOrganizationDto,
+        role: ERole.ORGANIZATION,
         password: hashedPassword,
       });
 

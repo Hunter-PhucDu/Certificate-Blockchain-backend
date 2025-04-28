@@ -220,6 +220,9 @@ export class AuthService {
   }
 
   async sendLinkResetPasswordAdmin(forgotPwDto: ForgotPasswordRequestDto): Promise<void> {
+    const session = await this.otpModel.model.startSession();
+    session.startTransaction();
+
     try {
       const admin = await this.adminModel.model.findOne({ email: forgotPwDto.email });
 
@@ -227,17 +230,33 @@ export class AuthService {
         throw new BadRequestException('User not found.');
       }
 
-      const verify = this.verifyOtp(admin._id, admin.role, forgotPwDto.otp, OtpType.FORGOT_PASSWORD);
+      const otpDoc = await this.otpModel.model
+        .findOne({
+          accountId: admin._id,
+          accountType: admin.role,
+          otp: forgotPwDto.otp,
+          type: OtpType.FORGOT_PASSWORD,
+          expiresAt: { $gt: new Date() },
+          isUsed: false,
+        })
+        .session(session);
 
-      if (!verify) {
+      if (!otpDoc) {
         throw new BadRequestException('Invalid or expired OTP.');
       }
 
+      await this.otpModel.model.updateOne({ _id: otpDoc._id }, { isUsed: true }, { session });
+
       const token = crypto.randomBytes(32).toString('hex');
 
-      await this.emailService.sendPasswordResetLink(forgotPwDto.email, admin._id, admin.role, token);
+      await this.emailService.sendPasswordResetLink(forgotPwDto.email, admin._id, admin.role, token, session);
+
+      await session.commitTransaction();
     } catch (error) {
+      await session.abortTransaction();
       throw new BadRequestException(`Error while send link reset password: ${error.message}`);
+    } finally {
+      session.endSession();
     }
   }
 

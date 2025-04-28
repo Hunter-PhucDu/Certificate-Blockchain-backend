@@ -21,19 +21,19 @@ export class Otp extends Document {
   @Prop({ required: true, enum: ERole })
   accountType: ERole;
 
-  @Prop({ required: true })
-  otp: string;
+  @Prop({ type: String })
+  otp?: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Date })
   expiresAt: Date;
 
   @Prop({ required: true, type: String, enum: OtpType })
   type: OtpType;
 
-  @Prop({ default: false })
+  @Prop({ default: false, type: Boolean })
   isUsed: boolean;
 
-  @Prop({ required: false })
+  @Prop({ type: String })
   verificationToken?: string;
 }
 
