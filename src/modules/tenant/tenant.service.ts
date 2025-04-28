@@ -70,7 +70,7 @@ export class TenantService {
 
   async getTenant(tenantId: string): Promise<TenantResponseDto> {
     try {
-      const tenantDoc = await this.tenantModel.model.findById({ _id: tenantId });
+      const tenantDoc = await this.tenantModel.model.findById(tenantId);
       if (!tenantDoc) {
         throw new BadRequestException('Tenant not found');
       }

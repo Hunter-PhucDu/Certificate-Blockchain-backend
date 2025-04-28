@@ -49,6 +49,36 @@ export class TenantController {
     return await this.tenantServitce.updateTenant(tenantId, updateDto);
   }
 
+  @Get('search')
+  @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({
+    summary: 'Search tenants with pagination',
+    description: 'Search tenants with pagination by name or subdomain',
+  })
+  @ApiSuccessPaginationResponse({ dataType: TenantResponseDto })
+  async findWithPagination(
+    @Query() getTenantsRequestDto: GetTenantsRequestDto,
+  ): Promise<ListRecordSuccessResponseDto<TenantResponseDto>> {
+    return await this.tenantServitce.getTenants(getTenantsRequestDto);
+  }
+
+  @Get('unused')
+  @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({
+    summary: 'Get all unused tenants',
+    description: 'Get all unused tenants with pagination',
+  })
+  @ApiSuccessPaginationResponse({ dataType: TenantResponseDto })
+  async getAllUnusedTenants(
+    @Query() getTenantsRequestDto: GetTenantsRequestDto,
+  ): Promise<ListRecordSuccessResponseDto<TenantResponseDto>> {
+    return await this.tenantServitce.getUnusedTenants(getTenantsRequestDto);
+  }
+
   @Get(':tenantId')
   @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
   @ApiOperation({
@@ -58,36 +88,6 @@ export class TenantController {
   @ApiSuccessResponse({ dataType: TenantResponseDto })
   async getTenant(@Param('tenantId') tenantId: string): Promise<TenantResponseDto> {
     return await this.tenantServitce.getTenant(tenantId);
-  }
-
-  @Get('search')
-  @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({
-    summary: 'Get pagination admins',
-    description: 'Get pagination admins by search',
-  })
-  @ApiSuccessPaginationResponse({ dataType: TenantResponseDto })
-  async findWithPagination(
-    @Query() getTenantsRequestDto: GetTenantsRequestDto,
-  ): Promise<ListRecordSuccessResponseDto<GetTenantsRequestDto>> {
-    return await this.tenantServitce.getTenants(getTenantsRequestDto);
-  }
-
-  @Get('')
-  @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({
-    summary: 'Get all unused tenants',
-    description: 'Get all unused tenants',
-  })
-  @ApiSuccessPaginationResponse({ dataType: TenantResponseDto })
-  async getAllUnusedTenants(
-    @Query() getTenantsRequestDto: GetTenantsRequestDto,
-  ): Promise<ListRecordSuccessResponseDto<TenantResponseDto>> {
-    return await this.tenantServitce.getUnusedTenants(getTenantsRequestDto);
   }
 
   @Delete(':tenantId')
