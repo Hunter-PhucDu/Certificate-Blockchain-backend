@@ -199,21 +199,33 @@ export class EmailService {
     }
   }
 
-  async sendPasswordResetLink(email: string, accountId: string, accountType: ERole, token: string): Promise<string> {
+  async sendPasswordResetLink(
+    email: string,
+    accountId: string | Types.ObjectId,
+    accountType: ERole,
+    token: string,
+    session?: any,
+  ): Promise<string> {
     try {
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 1);
 
-      await this.otpModel.model.create({
-        accountId,
-        accountType,
-        verificationToken: token,
-        otp: '',
-        expiresAt,
-        type: OtpType.RESET_PASSWORD,
-      });
+      await this.otpModel.model.create(
+        [
+          {
+            accountId,
+            accountType,
+            verificationToken: token,
+            otp: null,
+            expiresAt,
+            type: OtpType.RESET_PASSWORD,
+            isUsed: false,
+          },
+        ],
+        { session },
+      );
 
-      const baseUrl = this.configService.get('app.baseUrl');
+      const baseUrl = this.configService.get('BASE_URL');
       const resetUrl = `${baseUrl}/auth/reset-password?token=${token}`;
 
       await this.mailerService.sendMail({

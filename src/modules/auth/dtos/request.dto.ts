@@ -76,6 +76,7 @@ export class ForgotPasswordRequestDto extends BaseRequestDto {
   @IsNotEmpty()
   otp: string;
 }
+
 @Exclude()
 export class ResetPasswordLinkRequestDto {
   @Expose()
