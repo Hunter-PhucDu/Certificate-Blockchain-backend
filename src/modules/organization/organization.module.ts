@@ -5,9 +5,10 @@ import { OrganizationService } from './organization.service';
 import { EmailModule } from '../email/email.module';
 import { AuthModule } from '../auth/auth.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { LogModule } from 'modules/log/log.module';
 
 @Module({
-  imports: [SharedModule, EmailModule, AuthModule, TenantModule],
+  imports: [SharedModule, EmailModule, AuthModule, TenantModule, LogModule],
   controllers: [OrganizationController],
   providers: [OrganizationService],
   exports: [OrganizationService],

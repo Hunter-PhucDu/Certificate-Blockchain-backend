@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Delete, UseGuards, Param, Get, Query, Patch } from '@nestjs/common';
+import { Body, Controller, Post, Delete, UseGuards, Param, Get, Query, Patch, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ApiSuccessPaginationResponse,
@@ -12,6 +12,7 @@ import { AddTenantRequestDto, GetTenantsRequestDto, UpdateTenantRequestDto } fro
 import { TenantResponseDto } from './dtos/response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { TenantService } from './tenant.service';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Controller('tenants')
 @ApiTags('Tenant')
@@ -31,8 +32,9 @@ export class TenantController {
     type: AddTenantRequestDto,
   })
   @ApiSuccessResponse({ dataType: TenantResponseDto })
-  async addTenant(@Body() addTenantDto: AddTenantRequestDto): Promise<TenantResponseDto> {
-    return await this.tenantServitce.addTenant(addTenantDto);
+  async addTenant(@Body() addTenantDto: AddTenantRequestDto, @Req() req): Promise<TenantResponseDto> {
+    const user: IJwtPayload = req.user;
+    return await this.tenantServitce.addTenant(user, addTenantDto);
   }
 
   @Patch(':tenantId')
@@ -45,8 +47,10 @@ export class TenantController {
   async updateTenant(
     @Body() updateDto: UpdateTenantRequestDto,
     @Param('tenantId') tenantId: string,
+    @Req() req,
   ): Promise<TenantResponseDto> {
-    return await this.tenantServitce.updateTenant(tenantId, updateDto);
+    const user: IJwtPayload = req.user;
+    return await this.tenantServitce.updateTenant(user, tenantId, updateDto);
   }
 
   @Get('search')
@@ -96,7 +100,8 @@ export class TenantController {
     summary: 'Delete tenant',
     description: 'Delete tenant',
   })
-  async deleteTenant(@Param('tenantId') tenantId: string): Promise<void> {
-    await this.tenantServitce.deleteTenant(tenantId);
+  async deleteTenant(@Param('tenantId') tenantId: string, @Req() req): Promise<void> {
+    const user: IJwtPayload = req.user;
+    await this.tenantServitce.deleteTenant(user, tenantId);
   }
 }

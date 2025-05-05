@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose, Transform } from 'class-transformer';
-import { IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, Matches, MinLength, IsEmail } from 'class-validator';
 import { IsEmailOrPhone } from 'modules/shared/decorators/is-email-or-phone.decorator';
 
 @Exclude()
@@ -9,14 +9,14 @@ export class BaseRequestDto {
   @ApiProperty({
     required: true,
     type: String,
-    example: 'abc.example@gmail.com',
+    example: 'example@email.com',
   })
   @IsNotEmpty()
   @IsString()
   @IsEmailOrPhone({
     message: 'Email is not valid',
   })
-  @IsString()
+  @IsEmail()
   @Transform(({ value }) => value?.trim())
   email: string;
 }

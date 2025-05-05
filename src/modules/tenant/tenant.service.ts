@@ -9,6 +9,8 @@ import { getPagination } from 'modules/shared/utils/get-pagination';
 import { EStatus } from 'modules/shared/enums/status.enum';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
+import { LogService } from 'modules/log/log.service';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Injectable()
 export class TenantService {
@@ -16,9 +18,10 @@ export class TenantService {
     private readonly tenantModel: TenantModel,
     private readonly organizationModel: TenantModel,
     @InjectConnection() private readonly db: Connection,
+    private readonly logService: LogService,
   ) {}
 
-  async addTenant(addTenantDto: AddTenantRequestDto): Promise<TenantResponseDto> {
+  async addTenant(user: IJwtPayload, addTenantDto: AddTenantRequestDto): Promise<TenantResponseDto> {
     const session = await this.db.startSession();
     session.startTransaction();
     let newDb;
@@ -29,6 +32,12 @@ export class TenantService {
       const existedTenant = await this.tenantModel.model.findOne({ tenantName, subdomain }).session(session);
 
       if (existedTenant) {
+        await this.logService.createSystemLog(
+          user.username,
+          user.role,
+          'CREATE_TENANT_FAILED',
+          JSON.stringify({ tenantName, subdomain, reason: 'Tenant name or subdomain has been registered' }),
+        );
         throw new BadRequestException('Tenant name or subdomain has been registered.');
       }
 
@@ -48,9 +57,23 @@ export class TenantService {
 
       await newDb.createCollection('Certificates');
       await newDb.createCollection('Groups');
+      await newDb.createCollection('Logs');
       newDbCreated = true;
 
       await session.commitTransaction();
+
+      await this.logService.createSystemLog(
+        user.username,
+        user.role,
+        'CREATE_TENANT_SUCCESS',
+        JSON.stringify({
+          tenantId: newUser._id,
+          tenantName,
+          subdomain,
+          status: EStatus.ACTIVE,
+        }),
+      );
+
       return plainToInstance(TenantResponseDto, newUser.toObject());
     } catch (e) {
       await session.abortTransaction();
@@ -59,9 +82,22 @@ export class TenantService {
         try {
           await newDb.dropDatabase();
         } catch (dropError) {
-          console.error('Error dropping tenant database:', dropError);
+          await this.logService.createSystemLog(
+            user.username,
+            user.role,
+            'DROP_TENANT_DB_FAILED',
+            JSON.stringify({ tenantName: addTenantDto.tenantName, error: dropError.message }),
+          );
         }
       }
+
+      await this.logService.createSystemLog(
+        user.username,
+        user.role,
+        'CREATE_TENANT_FAILED',
+        JSON.stringify({ tenantName: addTenantDto.tenantName, error: e.message }),
+      );
+
       throw new BadRequestException(`Error while adding new Tenant: ${e.message}`);
     } finally {
       session.endSession();
@@ -81,10 +117,20 @@ export class TenantService {
     }
   }
 
-  async updateTenant(tenantId: string, updateTenantDto: UpdateTenantRequestDto): Promise<TenantResponseDto> {
+  async updateTenant(
+    user: IJwtPayload,
+    tenantId: string,
+    updateTenantDto: UpdateTenantRequestDto,
+  ): Promise<TenantResponseDto> {
     try {
       const tenantDoc = await this.tenantModel.model.findById({ _id: tenantId });
       if (!tenantDoc) {
+        await this.logService.createSystemLog(
+          user.username,
+          user.role,
+          'UPDATE_TENANT_FAILED',
+          JSON.stringify({ tenantId, reason: 'Tenant not found' }),
+        );
         throw new BadRequestException('Tenant not found');
       }
 
@@ -93,8 +139,26 @@ export class TenantService {
         { $set: updateTenantDto },
         { new: true },
       );
+
+      await this.logService.createSystemLog(
+        user.username,
+        user.role,
+        'UPDATE_TENANT_SUCCESS',
+        JSON.stringify({
+          tenantId,
+          tenantName: updatedTenant.tenantName,
+          updates: updateTenantDto,
+        }),
+      );
+
       return plainToInstance(TenantResponseDto, updatedTenant.toObject());
     } catch (error) {
+      await this.logService.createSystemLog(
+        user.username,
+        user.role,
+        'UPDATE_TENANT_FAILED',
+        JSON.stringify({ tenantId, error: error.message }),
+      );
       throw new BadRequestException(`Error while updating tenant: ${error.message}`);
     }
   }
@@ -168,7 +232,7 @@ export class TenantService {
     };
   }
 
-  async deleteTenant(tenantId: string): Promise<void> {
+  async deleteTenant(user: IJwtPayload, tenantId: string): Promise<void> {
     try {
       const deletedTenant = await this.tenantModel.model.findOneAndUpdate(
         { _id: tenantId },
@@ -176,9 +240,32 @@ export class TenantService {
       );
 
       if (!deletedTenant) {
+        await this.logService.createSystemLog(
+          user.username,
+          user.role,
+          'DELETE_TENANT_FAILED',
+          JSON.stringify({ tenantId, reason: 'Tenant not found' }),
+        );
         throw new BadRequestException('Tenant not found');
       }
+
+      await this.logService.createSystemLog(
+        user.username,
+        user.role,
+        'DELETE_TENANT_SUCCESS',
+        JSON.stringify({
+          tenantId,
+          tenantName: deletedTenant.tenantName,
+          status: EStatus.SUSPENDED,
+        }),
+      );
     } catch (error) {
+      await this.logService.createSystemLog(
+        user.username,
+        user.role,
+        'DELETE_TENANT_FAILED',
+        JSON.stringify({ tenantId, error: error.message }),
+      );
       throw new BadRequestException(`Error while deleting tenant: ${error.message}`);
     }
   }
