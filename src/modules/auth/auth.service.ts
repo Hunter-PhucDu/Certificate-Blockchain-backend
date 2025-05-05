@@ -19,6 +19,7 @@ import { OrganizationModel } from 'modules/shared/models/organization.model';
 import { EmailService } from 'modules/email/email.service';
 import { OtpType } from 'modules/shared/enums/otp.enum';
 import { Types } from 'mongoose';
+import { LogService } from '../log/log.service';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly otpModel: OtpModel,
     private readonly emailService: EmailService,
+    private readonly logService: LogService,
   ) {}
 
   async onModuleInit() {
@@ -58,6 +60,15 @@ export class AuthService {
         const checkPw = await this.checkPassword(password, admin.password);
 
         if (admin.isLocked) {
+          await this.logService.createSystemLog(
+            admin.username,
+            admin.role,
+            'ADMIN_LOGIN_FAILED',
+            JSON.stringify({
+              username,
+              reason: 'Account is locked',
+            }),
+          );
           throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
 
@@ -66,23 +77,40 @@ export class AuthService {
             await this.adminModel.model.updateOne({ _id: admin._id }, { loginAttempts: 0 }, { new: true });
           }
 
-          if (admin.email) {
-            const accessToken = await this.generateAccessToken(admin._id, admin.email, admin.role);
-            const refreshToken = await this.generateRefreshToken(admin._id, admin.email, admin.role);
-            const tokens = { accessToken, refreshToken };
+          const accessToken = await this.generateAccessToken(admin._id, admin.email || admin.username, admin.role);
+          const refreshToken = await this.generateRefreshToken(admin._id, admin.email || admin.username, admin.role);
+          const tokens = { accessToken, refreshToken };
 
-            return tokens;
-          } else {
-            const accessToken = await this.generateAccessToken(admin._id, admin.username, admin.role);
-            const refreshToken = await this.generateRefreshToken(admin._id, admin.username, admin.role);
-            const tokens = { accessToken, refreshToken };
+          await this.logService.createSystemLog(
+            admin.username,
+            admin.role,
+            'ADMIN_LOGIN_SUCCESS',
+            JSON.stringify({
+              adminId: admin._id,
+              username: admin.username,
+              email: admin.email,
+              role: admin.role,
+            }),
+          );
 
-            return tokens;
-          }
+          return tokens;
         }
 
         if (admin.loginAttempts < 4) {
           await this.adminModel.model.updateOne({ _id: admin._id }, { $inc: { loginAttempts: 1 } }, { new: true });
+
+          await this.logService.createSystemLog(
+            admin.username,
+            admin.role,
+            'ADMIN_LOGIN_FAILED',
+            JSON.stringify({
+              adminId: admin._id,
+              username: admin.username,
+              email: admin.email,
+              reason: 'Invalid password',
+              remainingAttempts: 4 - admin.loginAttempts,
+            }),
+          );
 
           throw new BadRequestException(
             `Password is incorrect. You have \`${4 - admin.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
@@ -96,9 +124,31 @@ export class AuthService {
             { new: true },
           );
 
+          await this.logService.createSystemLog(
+            admin.username,
+            admin.role,
+            'ADMIN_ACCOUNT_LOCKED',
+            JSON.stringify({
+              adminId: admin._id,
+              username: admin.username,
+              email: admin.email,
+              reason: 'Too many failed login attempts',
+            }),
+          );
+
           throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
       }
+
+      await this.logService.createSystemLog(
+        admin.username,
+        admin.role,
+        'ADMIN_LOGIN_FAILED',
+        JSON.stringify({
+          username,
+          reason: 'User not found',
+        }),
+      );
 
       throw new BadRequestException('Username or password is incorrect.');
     } catch (error) {
@@ -118,25 +168,62 @@ export class AuthService {
         const checkPw = await this.checkPassword(password, organization.password);
 
         if (organization.isLocked) {
+          await this.logService.createSystemLog(
+            organization.email,
+            organization.role,
+            'ORGANIZATION_LOGIN_FAILED',
+            JSON.stringify({
+              username,
+              reason: 'Account is locked',
+            }),
+          );
           throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
 
         if (checkPw) {
           if (organization.loginAttempts > 0) {
-            await this.adminModel.model.updateOne({ _id: organization._id }, { loginAttempts: 0 }, { new: true });
+            await this.organizationModel.model.updateOne(
+              { _id: organization._id },
+              { loginAttempts: 0 },
+              { new: true },
+            );
           }
           const accessToken = await this.generateAccessToken(organization._id, organization.email, organization.role);
           const refreshToken = await this.generateRefreshToken(organization._id, organization.email, organization.role);
           const tokens = { accessToken, refreshToken };
 
+          await this.logService.createSystemLog(
+            organization.email,
+            organization.role,
+            'ORGANIZATION_LOGIN_SUCCESS',
+            JSON.stringify({
+              organizationId: organization._id,
+              email: organization.email,
+              role: organization.role,
+              tenantId: organization.tenantId,
+            }),
+          );
+
           return tokens;
         }
 
         if (organization.loginAttempts < 4) {
-          await this.adminModel.model.updateOne(
+          await this.organizationModel.model.updateOne(
             { _id: organization._id },
             { $inc: { loginAttempts: 1 } },
             { new: true },
+          );
+
+          await this.logService.createSystemLog(
+            organization.email,
+            organization.role,
+            'ORGANIZATION_LOGIN_FAILED',
+            JSON.stringify({
+              organizationId: organization._id,
+              email: organization.email,
+              reason: 'Invalid password',
+              remainingAttempts: 4 - organization.loginAttempts,
+            }),
           );
 
           throw new BadRequestException(
@@ -145,15 +232,36 @@ export class AuthService {
         }
 
         if (organization.loginAttempts === 4) {
-          await this.adminModel.model.updateOne(
+          await this.organizationModel.model.updateOne(
             { _id: organization._id },
             { $inc: { loginAttempts: 1 }, isLocked: true },
             { new: true },
           );
 
+          await this.logService.createSystemLog(
+            organization.email,
+            organization.role,
+            'ORGANIZATION_ACCOUNT_LOCKED',
+            JSON.stringify({
+              organizationId: organization._id,
+              email: organization.email,
+              reason: 'Too many failed login attempts',
+            }),
+          );
+
           throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
       }
+
+      await this.logService.createSystemLog(
+        organization.email,
+        organization.role,
+        'ORGANIZATION_LOGIN_FAILED',
+        JSON.stringify({
+          username,
+          reason: 'User not found',
+        }),
+      );
 
       throw new BadRequestException('Username or password is incorrect.');
     } catch (error) {

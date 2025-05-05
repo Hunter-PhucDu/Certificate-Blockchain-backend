@@ -4,9 +4,10 @@ import { GroupController } from './group.controller';
 import { GroupService } from './group.service';
 import { AuthModule } from '../auth/auth.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { LogModule } from 'modules/log/log.module';
 
 @Module({
-  imports: [SharedModule, AuthModule, TenantModule],
+  imports: [SharedModule, AuthModule, TenantModule, LogModule],
   controllers: [GroupController],
   providers: [
     {

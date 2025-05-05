@@ -6,8 +6,7 @@ export class LoginResponseDto {
   @Expose()
   @ApiProperty({
     type: String,
-    required: true,
-    example: '0x123...',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   accessToken: string;
 
@@ -35,8 +34,7 @@ export class RefreshTokenResponseDto {
   @Expose()
   @ApiProperty({
     type: String,
-    required: true,
-    example: '0x123...',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   accessToken: string;
 }

@@ -19,6 +19,8 @@ import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { CertificateResponseDto } from './dtos/response.dto';
 import { GroupSchema } from '../shared/schemas/group.schema';
+import { LogService } from '../log/log.service';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Injectable()
 export class CertificateService {
@@ -34,6 +36,7 @@ export class CertificateService {
     @Inject(REQUEST) private readonly request: Request,
     private readonly blockchainService: BlockchainService,
     private readonly blockfrostService: BlockfrostService,
+    private readonly logService: LogService,
   ) {}
 
   async processCertificate(certificateData: BlockchainRequestDto): Promise<string> {
@@ -41,7 +44,10 @@ export class CertificateService {
     return await this.blockchainService.buildAndSignTransaction(certificateData, privateKey);
   }
 
-  async createCertificate(createCertificateDto: CreateCertificateRequestDto): Promise<CertificateResponseDto> {
+  async createCertificate(
+    user: IJwtPayload,
+    createCertificateDto: CreateCertificateRequestDto,
+  ): Promise<CertificateResponseDto> {
     try {
       const tenantDb = this.request['tenantDb'];
       const groupModel = tenantDb.model('Groups', GroupSchema);
@@ -71,6 +77,20 @@ export class CertificateService {
       const certificate = new this.certificateModel(certificateData);
       const savedCertificate = await certificate.save();
 
+      const tenantDbName = this.request['tenantDbName'];
+      await this.logService.createTenantLog(
+        tenantDbName,
+        user.username,
+        user.role,
+        'CREATE_CERTIFICATE',
+        JSON.stringify({
+          certificateId: savedCertificate._id,
+          certificateType: savedCertificate.certificateType,
+          groupId: savedCertificate.groupId,
+          txHash: savedCertificate.txHash,
+        }),
+      );
+
       const plainObject = savedCertificate.toObject();
       return plainToInstance(CertificateResponseDto, plainObject);
     } catch (error) {
@@ -78,7 +98,11 @@ export class CertificateService {
     }
   }
 
-  async updateCertificate(id: string, updateDto: UpdateCertificateDto): Promise<CertificateResponseDto> {
+  async updateCertificate(
+    user: IJwtPayload,
+    id: string,
+    updateDto: UpdateCertificateDto,
+  ): Promise<CertificateResponseDto> {
     try {
       const certificate = await this.certificateModel.findById(id);
 
@@ -105,6 +129,21 @@ export class CertificateService {
 
       const newCertificate = new this.certificateModel(certificateData);
       const savedCertificate = await newCertificate.save();
+
+      const tenantDbName = this.request['tenantDbName'];
+      await this.logService.createTenantLog(
+        tenantDbName,
+        user.username,
+        user.role,
+        'UPDATE_CERTIFICATE',
+        JSON.stringify({
+          certificateId: id,
+          newCertificateId: savedCertificate._id,
+          certificateType: savedCertificate.certificateType,
+          groupId: savedCertificate.groupId,
+          txHash: savedCertificate.txHash,
+        }),
+      );
 
       const plainObject = savedCertificate.toObject();
       return plainToInstance(CertificateResponseDto, plainObject);
@@ -176,12 +215,26 @@ export class CertificateService {
     }
   }
 
-  async deleteCertificate(id: string): Promise<void> {
+  async deleteCertificate(user: IJwtPayload, id: string): Promise<void> {
     try {
       const certificate = await this.certificateModel.findById(id);
       if (!certificate) {
         throw new NotFoundException('Certificate not found');
       }
+
+      const tenantDbName = this.request['tenantDbName'];
+      await this.logService.createTenantLog(
+        tenantDbName,
+        user.username,
+        user.role,
+        'DELETE_CERTIFICATE',
+        JSON.stringify({
+          certificateId: id,
+          certificateType: certificate.certificateType,
+          groupId: certificate.groupId,
+          txHash: certificate.txHash,
+        }),
+      );
 
       await this.certificateModel.findByIdAndDelete(id);
     } catch (error) {

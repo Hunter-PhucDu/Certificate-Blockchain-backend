@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CertificateService } from './certificate.service';
 import { CreateCertificateRequestDto, GetCertificatesRequestDto, UpdateCertificateDto } from './dtos/request.dto';
@@ -13,6 +13,7 @@ import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-su
 import { ValidateObjectId } from 'modules/shared/validators/id.validator';
 import { Roles } from 'modules/shared/decorators/role.decorator';
 import { ERole } from 'modules/shared/enums/auth.enum';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Controller('certificates')
 @ApiTags('Certificates')
@@ -25,8 +26,12 @@ export class CertificateController {
   @Roles([ERole.ORGANIZATION])
   @ApiOperation({ summary: 'Create new certificate' })
   @ApiSuccessResponse({ dataType: CertificateResponseDto })
-  async createCertificate(@Body() createCertificateDto: CreateCertificateRequestDto): Promise<CertificateResponseDto> {
-    return this.certificateService.createCertificate(createCertificateDto);
+  async createCertificate(
+    @Body() createCertificateDto: CreateCertificateRequestDto,
+    @Req() req,
+  ): Promise<CertificateResponseDto> {
+    const user: IJwtPayload = req.user;
+    return this.certificateService.createCertificate(user, createCertificateDto);
   }
 
   @Put(':certificateId')
@@ -38,8 +43,10 @@ export class CertificateController {
   async updateCertificate(
     @Param('certificateId', new ValidateObjectId()) certificateId: string,
     @Body() updateDto: UpdateCertificateDto,
+    @Req() req,
   ): Promise<CertificateResponseDto> {
-    return this.certificateService.updateCertificate(certificateId, updateDto);
+    const user: IJwtPayload = req.user;
+    return this.certificateService.updateCertificate(user, certificateId, updateDto);
   }
 
   @Get('tx/:txHash')
@@ -77,7 +84,11 @@ export class CertificateController {
   @ApiBearerAuth()
   @Roles([ERole.ORGANIZATION])
   @ApiOperation({ summary: 'Delete certificate' })
-  async deleteCertificate(@Param('certificateId', new ValidateObjectId()) certificateId: string): Promise<void> {
-    return this.certificateService.deleteCertificate(certificateId);
+  async deleteCertificate(
+    @Param('certificateId', new ValidateObjectId()) certificateId: string,
+    @Req() req,
+  ): Promise<void> {
+    const user: IJwtPayload = req.user;
+    return this.certificateService.deleteCertificate(user, certificateId);
   }
 }

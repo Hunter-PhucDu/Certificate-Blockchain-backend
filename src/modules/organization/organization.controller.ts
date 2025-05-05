@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -24,6 +25,7 @@ import { ERole } from 'modules/shared/enums/auth.enum';
 import { Roles } from 'modules/shared/decorators/role.decorator';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { ValidateObjectId } from 'modules/shared/validators/id.validator';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Controller('organizations')
 @ApiTags('Organizations')
@@ -37,8 +39,12 @@ export class OrganizationController {
   @ApiOperation({ summary: 'Create new organization' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('logo'))
-  async createOrganization(@Body() addOrganizationDto: AddOrganizationRequestDto): Promise<OrganizationResponseDto> {
-    return this.organizationService.addOrganization(addOrganizationDto);
+  async createOrganization(
+    @Body() addOrganizationDto: AddOrganizationRequestDto,
+    @Req() req,
+  ): Promise<OrganizationResponseDto> {
+    const user: IJwtPayload = req.user;
+    return this.organizationService.addOrganization(user, addOrganizationDto);
   }
 
   @Get(':organizationId')
@@ -66,15 +72,21 @@ export class OrganizationController {
   async updateOrganization(
     @Param('organizationId', new ValidateObjectId()) organizationId: string,
     @Body() updateDto: UpdateOrganizationRequestDto,
+    @Req() req,
     @UploadedFile() logo?: Express.Multer.File,
   ): Promise<OrganizationResponseDto> {
-    return this.organizationService.updateOrganization(organizationId, updateDto, logo);
+    const user: IJwtPayload = req.user;
+    return this.organizationService.updateOrganization(user, organizationId, updateDto, logo);
   }
 
   @Delete(':organizationId')
   @Roles([ERole.SUPER_ADMIN])
   @ApiOperation({ summary: 'Delete organization' })
-  async deleteOrganization(@Param('organizationId', new ValidateObjectId()) organizationId: string): Promise<void> {
-    return this.organizationService.deleteOrganization(organizationId);
+  async deleteOrganization(
+    @Param('organizationId', new ValidateObjectId()) organizationId: string,
+    @Req() req,
+  ): Promise<void> {
+    const user: IJwtPayload = req.user;
+    return this.organizationService.deleteOrganization(user, organizationId);
   }
 }

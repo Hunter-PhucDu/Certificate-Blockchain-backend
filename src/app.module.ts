@@ -11,6 +11,7 @@ import { BlockchainModule } from 'modules/blockchain/blockchain.module';
 import { GroupModule } from 'modules/group/group.module';
 import { TenantMiddleware } from 'modules/shared/middlewares/tenant.middleware';
 import { OrganizationModule } from 'modules/organization/organization.module';
+import { LogModule } from 'modules/log/log.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { OrganizationModule } from 'modules/organization/organization.module';
     BlockchainModule,
     TenantModule,
     GroupModule,
+    LogModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'images'),
       serveRoot: '/images',
