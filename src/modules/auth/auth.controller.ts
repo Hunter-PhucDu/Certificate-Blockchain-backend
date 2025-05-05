@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
@@ -16,6 +16,7 @@ import { Roles } from 'modules/shared/decorators/role.decorator';
 import { ERole } from 'modules/shared/enums/auth.enum';
 import { JwtAuthGuard } from 'modules/shared/gaurds/jwt.guard';
 import { RolesGuard } from 'modules/shared/gaurds/role.gaurd';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -116,8 +117,12 @@ export class AuthController {
     summary: 'Reset password by admin',
     description: 'Reset password organization account by admin',
   })
-  async resetPasswordOrganization(@Body() resetPwOrganizationDto: ResetPasswordByAdminRequestDto): Promise<void> {
-    return await this.authService.resetPasswordOrganizationByAdmin(resetPwOrganizationDto);
+  async resetPasswordOrganization(
+    @Body() resetPwOrganizationDto: ResetPasswordByAdminRequestDto,
+    @Req() req,
+  ): Promise<void> {
+    const user: IJwtPayload = req.user;
+    return await this.authService.resetPasswordOrganizationByAdmin(user, resetPwOrganizationDto);
   }
 
   @Put('admin/reset-password')
@@ -128,8 +133,9 @@ export class AuthController {
     summary: 'Reset password by super admin',
     description: 'Reset password admin account by super admin',
   })
-  async resetPasswordAdmin(@Body() resetPwOrganizationDto: ResetPasswordByAdminRequestDto): Promise<void> {
-    return await this.authService.resetPasswordAdminBySuperAdmin(resetPwOrganizationDto);
+  async resetPasswordAdmin(@Body() resetPwOrganizationDto: ResetPasswordByAdminRequestDto, @Req() req): Promise<void> {
+    const user: IJwtPayload = req.user;
+    return await this.authService.resetPasswordAdminBySuperAdmin(user, resetPwOrganizationDto);
   }
 
   @Put('unlock-account/:organizationId')
@@ -142,8 +148,10 @@ export class AuthController {
   })
   async unlockAccoutOrganization(
     @Param('organizationId', new ValidateObjectId()) organizationId: string,
+    @Req() req,
   ): Promise<void> {
-    return await this.authService.unlockOrganizationAccount(organizationId);
+    const user: IJwtPayload = req.user;
+    return await this.authService.unlockOrganizationAccount(user, organizationId);
   }
 
   @Post('refresh-token')

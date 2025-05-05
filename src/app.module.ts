@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod, forwardRef } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { EmailModule } from 'modules/email/email.module';
 import { SharedModule } from 'modules/shared/shared.module';
@@ -16,15 +16,15 @@ import { LogModule } from 'modules/log/log.module';
 @Module({
   imports: [
     SharedModule,
-    AuthModule,
-    AdminModule,
-    OrganizationModule,
-    EmailModule,
-    CertificateModule,
+    forwardRef(() => AuthModule),
+    forwardRef(() => AdminModule),
+    forwardRef(() => OrganizationModule),
+    forwardRef(() => EmailModule),
+    forwardRef(() => CertificateModule),
     BlockchainModule,
-    TenantModule,
-    GroupModule,
-    LogModule,
+    forwardRef(() => TenantModule),
+    forwardRef(() => GroupModule),
+    forwardRef(() => LogModule),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'images'),
       serveRoot: '/images',
