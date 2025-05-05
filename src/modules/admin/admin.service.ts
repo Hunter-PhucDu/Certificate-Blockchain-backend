@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { plainToClass, plainToInstance } from 'class-transformer';
 import { AuthService } from '../auth/auth.service';
 import { ERole } from 'modules/shared/enums/auth.enum';
@@ -14,12 +14,14 @@ import { AdminResponseDto } from './dtos/response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { getPagination } from 'modules/shared/utils/get-pagination';
+import { LogService } from '../log/log.service';
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly adminModel: AdminModel,
     private readonly authService: AuthService,
+    private readonly logService: LogService,
   ) {}
 
   async addAdmin(addAdminDto: AddAdminRequestDto): Promise<AdminResponseDto> {
@@ -40,6 +42,19 @@ export class AdminService {
         loginAttempts: 0,
         role: ERole.ADMIN,
       });
+
+      await this.logService.createSystemLog(
+        'system',
+        ERole.SUPER_ADMIN,
+        'CREATE_ADMIN',
+        JSON.stringify({
+          adminId: newUser._id,
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role,
+        }),
+      );
+
       return plainToClass(AdminResponseDto, newUser.toObject());
     } catch (error) {
       throw new BadRequestException(`Error while add new admin: ${error.message}`);
@@ -63,6 +78,18 @@ export class AdminService {
     try {
       const userDoc = await this.adminModel.model.findById({ _id: user._id });
       if (!userDoc) {
+        await this.logService.createSystemLog(
+          user.username,
+          user.role,
+          'UPDATE_ADMIN_FAILED',
+          JSON.stringify({
+            adminId: user._id,
+            updates: {
+              username: updateAdminDto.username,
+            },
+          }),
+        );
+
         throw new BadRequestException('Admin not found');
       }
 
@@ -71,6 +98,19 @@ export class AdminService {
         { $set: updateAdminDto },
         { new: true },
       );
+
+      await this.logService.createSystemLog(
+        user.username,
+        user.role,
+        'UPDATE_ADMIN',
+        JSON.stringify({
+          adminId: user._id,
+          updates: {
+            username: updateAdminDto.username,
+          },
+        }),
+      );
+
       return plainToInstance(AdminResponseDto, updatedUser.toObject());
     } catch (error) {
       throw new BadRequestException(`Error while updating admin: ${error.message}`);
@@ -113,20 +153,37 @@ export class AdminService {
       const hashedPw = await this.authService.hashPassword(changePasswordDto.newPassword);
 
       await this.adminModel.model.findOneAndUpdate({ _id: user._id }, { password: hashedPw }, { new: true });
+
+      await this.logService.createSystemLog(
+        user.username,
+        user.role,
+        'CHANGE_PASSWORD',
+        JSON.stringify({
+          adminId: user._id,
+          username: user.username,
+        }),
+      );
     } catch (error) {
       throw new BadRequestException(`Error while changing password: ${error.message}`);
     }
   }
 
-  async deleteAdmin(adminId: string): Promise<void> {
-    try {
-      const deletedUser = await this.adminModel.model.findOneAndDelete({ _id: adminId });
-
-      if (!deletedUser) {
-        throw new BadRequestException('Admin not found');
-      }
-    } catch (error) {
-      throw new BadRequestException(`Error while deleting admin: ${error.message}`);
+  async deleteAdmin(user: IJwtPayload, id: string): Promise<void> {
+    const deletedAdmin = await this.adminModel.model.findByIdAndDelete(id);
+    if (!deletedAdmin) {
+      throw new NotFoundException('Admin not found');
     }
+
+    await this.logService.createSystemLog(
+      user.username,
+      user.role,
+      'DELETE_ADMIN',
+      JSON.stringify({
+        adminId: deletedAdmin._id,
+        username: deletedAdmin.username,
+        email: deletedAdmin.email,
+        role: deletedAdmin.role,
+      }),
+    );
   }
 }

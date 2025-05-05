@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { UpdateGroupRequestDto, AddGroupRequestDto, GetGroupsDto } from './dtos/request.dto';
@@ -11,6 +11,7 @@ import { ERole } from 'modules/shared/enums/auth.enum';
 import { Roles } from 'modules/shared/decorators/role.decorator';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { ValidateObjectId } from 'modules/shared/validators/id.validator';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Controller('groups')
 @ApiTags('Groups')
@@ -22,8 +23,9 @@ export class GroupController {
 
   @Post()
   @ApiOperation({ summary: 'Create new group' })
-  async createGroup(@Body() addGroupDto: AddGroupRequestDto): Promise<GroupResponseDto> {
-    return this.groupService.addGroup(addGroupDto);
+  async createGroup(@Body() addGroupDto: AddGroupRequestDto, @Req() req): Promise<GroupResponseDto> {
+    const user: IJwtPayload = req.user;
+    return this.groupService.addGroup(user, addGroupDto);
   }
 
   @Get(':groupId')
@@ -44,13 +46,16 @@ export class GroupController {
   async updateGroup(
     @Param('groupId', new ValidateObjectId()) groupId: string,
     @Body() updateDto: UpdateGroupRequestDto,
+    @Req() req,
   ): Promise<GroupResponseDto> {
-    return this.groupService.updateGroup(groupId, updateDto);
+    const user: IJwtPayload = req.user;
+    return this.groupService.updateGroup(user, groupId, updateDto);
   }
 
   @Delete(':groupId')
   @ApiOperation({ summary: 'Delete group' })
-  async deleteGroup(@Param('groupId', new ValidateObjectId()) groupId: string): Promise<void> {
-    return this.groupService.deleteGroup(groupId);
+  async deleteGroup(@Param('groupId', new ValidateObjectId()) groupId: string, @Req() req): Promise<void> {
+    const user: IJwtPayload = req.user;
+    return this.groupService.deleteGroup(user, groupId);
   }
 }

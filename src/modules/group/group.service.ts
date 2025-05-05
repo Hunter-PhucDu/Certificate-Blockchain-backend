@@ -11,6 +11,8 @@ import { plainToInstance } from 'class-transformer';
 import { getPagination } from 'modules/shared/utils/get-pagination';
 import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
+import { LogService } from '../log/log.service';
+import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Injectable()
 export class GroupService {
@@ -22,9 +24,12 @@ export class GroupService {
     return tenantDb.model<Group>('Group', GroupSchema);
   }
 
-  constructor(@Inject(REQUEST) private readonly request: Request) {}
+  constructor(
+    @Inject(REQUEST) private readonly request: Request,
+    private readonly logService: LogService,
+  ) {}
 
-  async addGroup(addGroupDto: AddGroupRequestDto): Promise<GroupResponseDto> {
+  async addGroup(user: IJwtPayload, addGroupDto: AddGroupRequestDto): Promise<GroupResponseDto> {
     try {
       let path: Types.ObjectId[] = [];
       let level = 0;
@@ -50,6 +55,22 @@ export class GroupService {
       });
 
       const saved = await created.save();
+
+      const tenantDbName = this.request['tenantDbName'];
+      await this.logService.createTenantLog(
+        tenantDbName,
+        user.username,
+        user.role,
+        'CREATE_GROUP',
+        JSON.stringify({
+          groupId: saved._id,
+          groupName: saved.groupName,
+          parentId: saved.parentId,
+          level: saved.level,
+          path: saved.path,
+        }),
+      );
+
       return plainToInstance(GroupResponseDto, saved);
     } catch (error) {
       throw new BadRequestException(`Error creating Group: ${error.message}`);
@@ -96,7 +117,7 @@ export class GroupService {
     }
   }
 
-  async updateGroup(groupId: string, updateDto: UpdateGroupRequestDto): Promise<GroupResponseDto> {
+  async updateGroup(user: IJwtPayload, groupId: string, updateDto: UpdateGroupRequestDto): Promise<GroupResponseDto> {
     try {
       const group = await this.groupModel.findById(groupId);
       if (!group) {
@@ -117,13 +138,31 @@ export class GroupService {
       if (updateDto.groupName) group.groupName = updateDto.groupName;
 
       const updated = await group.save();
+
+      const tenantDbName = this.request['tenantDbName'];
+      await this.logService.createTenantLog(
+        tenantDbName,
+        user.username,
+        user.role,
+        'UPDATE_GROUP',
+        JSON.stringify({
+          groupId,
+          updates: {
+            groupName: updateDto.groupName,
+            parentId: updateDto.parentId,
+            level: updated.level,
+            path: updated.path,
+          },
+        }),
+      );
+
       return plainToInstance(GroupResponseDto, updated);
     } catch (error) {
       throw new BadRequestException(`Error updating Group: ${error.message}`);
     }
   }
 
-  async deleteGroup(id: string): Promise<void> {
+  async deleteGroup(user: IJwtPayload, id: string): Promise<void> {
     try {
       const group = await this.groupModel.findById(id);
       if (!group) {
@@ -134,6 +173,20 @@ export class GroupService {
       if (hasChildren) {
         throw new BadRequestException('Cannot delete a group with children');
       }
+
+      const tenantDbName = this.request['tenantDbName'];
+      await this.logService.createTenantLog(
+        tenantDbName,
+        user.username,
+        user.role,
+        'DELETE_GROUP',
+        JSON.stringify({
+          groupId: id,
+          groupName: group.groupName,
+          parentId: group.parentId,
+          level: group.level,
+        }),
+      );
 
       await this.groupModel.findByIdAndDelete(id);
     } catch (error) {

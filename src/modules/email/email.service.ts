@@ -6,6 +6,7 @@ import * as crypto from 'crypto';
 import { Types } from 'mongoose';
 import { ERole } from 'modules/shared/enums/auth.enum';
 import { OtpType } from 'modules/shared/enums/otp.enum';
+import { LogService } from '../log/log.service';
 
 @Injectable()
 export class EmailService {
@@ -13,6 +14,7 @@ export class EmailService {
     private readonly configService: ConfigService,
     private readonly mailerService: MailerService,
     private readonly otpModel: OtpModel,
+    private readonly logService: LogService,
   ) {}
 
   private getEmailTemplate(templateType: string, data: any): string {
@@ -142,6 +144,17 @@ export class EmailService {
         password,
       }),
     });
+
+    await this.logService.createSystemLog(
+      'System',
+      ERole.SUPER_ADMIN,
+      'SEND_ORGANIZATION_CREDENTIALS',
+      JSON.stringify({
+        email,
+        subdomain,
+        url,
+      }),
+    );
   }
 
   async sendEmailVerification(email: string, accountId: string, accountType: ERole): Promise<string> {
@@ -171,6 +184,17 @@ export class EmailService {
           expiryHours: 1,
         }),
       });
+
+      await this.logService.createSystemLog(
+        'System',
+        accountType,
+        'SEND_EMAIL_VERIFICATION',
+        JSON.stringify({
+          email,
+          accountId,
+          accountType,
+        }),
+      );
 
       return token;
     } catch (error) {
@@ -237,6 +261,17 @@ export class EmailService {
         }),
       });
 
+      await this.logService.createSystemLog(
+        'System',
+        accountType,
+        'SEND_PASSWORD_RESET_LINK',
+        JSON.stringify({
+          email,
+          accountId,
+          accountType,
+        }),
+      );
+
       return token;
     } catch (error) {
       throw new BadRequestException(`Error sending password reset email: ${error.message}`);
@@ -252,6 +287,15 @@ export class EmailService {
           newPassword,
         }),
       });
+
+      await this.logService.createSystemLog(
+        'System',
+        ERole.SUPER_ADMIN,
+        'SEND_NEW_PASSWORD',
+        JSON.stringify({
+          email,
+        }),
+      );
     } catch (error) {
       throw new BadRequestException(`Error sending password reset email: ${error.message}`);
     }
@@ -314,6 +358,18 @@ export class EmailService {
           expiryMinutes: 5,
         }),
       });
+
+      await this.logService.createSystemLog(
+        'System',
+        accountType,
+        'SEND_OTP',
+        JSON.stringify({
+          email,
+          accountId,
+          accountType,
+          type,
+        }),
+      );
     } catch (error) {
       throw new BadRequestException(`Error generating OTP: ${error.message}`);
     }

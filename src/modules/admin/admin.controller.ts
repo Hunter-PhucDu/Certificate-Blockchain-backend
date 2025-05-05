@@ -105,7 +105,8 @@ export class AdminController {
     summary: 'Delete admin',
     description: 'Delete admin',
   })
-  async deleteUser(@Param('adminId') adminId: string): Promise<void> {
-    await this.adminService.deleteAdmin(adminId);
+  async deleteUser(@Param('adminId') adminId: string, @Req() req): Promise<void> {
+    const user: IJwtPayload = req.user;
+    await this.adminService.deleteAdmin(user, adminId);
   }
 }
