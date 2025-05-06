@@ -18,11 +18,15 @@ export class EmailService {
   ) {}
 
   private getEmailTemplate(templateType: string, data: any): string {
+    const logoUrl = this.configService.get('LOGO_URL')
+      ? this.configService.get('LOGO_URL')
+      : this.configService.get('app.logo') || 'https://example.com/logo.png';
+
     const templates = {
       organizationInvite: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e4; border-radius: 5px;">
           <div style="text-align: center; margin-bottom: 20px;">
-            <img src="${this.configService.get('app.logo')}" alt="Logo" style="max-height: 60px;">
+            <img src="${logoUrl}" alt="Logo" style="max-height: 80px; border-radius: 50%;">
           </div>
           <h2 style="color: #333; text-align: center;">Organization Account Information</h2>
           <p>Hello,</p>
@@ -44,7 +48,7 @@ export class EmailService {
       otpVerification: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e4; border-radius: 5px;">
           <div style="text-align: center; margin-bottom: 20px;">
-            <img src="${this.configService.get('app.logo')}" alt="Logo" style="max-height: 60px;">
+            <img src="${logoUrl}" alt="Logo" style="max-height: 60px;">
           </div>
           <h2 style="color: #333; text-align: center;">Your Verification Code</h2>
           <p>Hello,</p>
@@ -65,7 +69,7 @@ export class EmailService {
       emailVerification: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e4; border-radius: 5px;">
           <div style="text-align: center; margin-bottom: 20px;">
-            <img src="${this.configService.get('app.logo')}" alt="Logo" style="max-height: 60px;">
+            <img src="${logoUrl}" alt="Logo" style="max-height: 60px;">
           </div>
           <h2 style="color: #333; text-align: center;">Verify Your Email Address</h2>
           <p>Hello,</p>
@@ -88,7 +92,7 @@ export class EmailService {
       passwordReset: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e4; border-radius: 5px;">
           <div style="text-align: center; margin-bottom: 20px;">
-            <img src="${this.configService.get('app.logo')}" alt="Logo" style="max-height: 60px;">
+            <img src="${logoUrl}" alt="Logo" style="max-height: 60px;">
           </div>
           <h2 style="color: #333; text-align: center;">Reset Your Password</h2>
           <p>Hello,</p>
@@ -111,7 +115,7 @@ export class EmailService {
       newPasswordReset: `
        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e4; border-radius: 5px;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <img src="${this.configService.get('app.logo')}" alt="Logo" style="max-height: 60px;">
+          <img src="${logoUrl}" alt="Logo" style="max-height: 60px;">
         </div>
         <h2 style="color: #333; text-align: center;">Password Reset Notification</h2>
         <p>Hello,</p>
@@ -132,8 +136,8 @@ export class EmailService {
   }
 
   async sendOrganizationCredentials(email: string, subdomain: string, password: string) {
-    const domain = this.configService.get('app.domain');
-    const url = `https://${subdomain}.${domain}`;
+    const baseUrl = this.configService.get('BASE_URL');
+    const url = `https://${subdomain}.${baseUrl}`;
 
     await this.mailerService.sendMail({
       to: email,

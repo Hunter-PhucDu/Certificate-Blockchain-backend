@@ -4,7 +4,8 @@ export default () => ({
     version: '1.0.0',
     prefix: 'api/v1',
     port: parseInt(process.env.PORT, 10) || 3000,
-    domain: process.env.DOMAIN || 'localhost',
+    domain: process.env.BASE_URL || 'localhost',
+    logo: process.env.LOGO_URL || 'https://example.com/logo.png',
     url: process.env.APP_URL || 'http://localhost:3000',
     bypassTenantInDev: process.env.BYPASS_TENANT_IN_DEV === 'true',
     swagger: {

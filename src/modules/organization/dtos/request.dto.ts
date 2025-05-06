@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Exclude, Expose, Transform } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { Exclude, Expose } from 'class-transformer';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '../../shared/dtos/pagination.dto';
 import { IsEmailOrPhone } from 'modules/shared/decorators/is-email-or-phone.decorator';
 
@@ -51,19 +51,6 @@ export class AddOrganizationRequestDto {
   })
   @IsOptional()
   address?: string;
-
-  @Expose()
-  @ApiProperty({
-    required: true,
-    type: String,
-    example: '******',
-  })
-  @IsNotEmpty()
-  @Transform(({ value }) => value?.trim())
-  @Matches(/^[^\s]*$/, {
-    message: 'Password should not contain spaces.',
-  })
-  password: string;
 }
 
 @Exclude()
