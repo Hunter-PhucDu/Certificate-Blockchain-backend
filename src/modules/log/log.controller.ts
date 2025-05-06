@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards, Req, Param } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { LogService } from './log.service';
 import { JwtAuthGuard } from 'modules/shared/gaurds/jwt.guard';
 import { RolesGuard } from 'modules/shared/gaurds/role.gaurd';
@@ -47,5 +47,13 @@ export class LogController {
   ): Promise<ListRecordSuccessResponseDto<LogResponseDto>> {
     const tenantDbName = req['tenantDbName'];
     return this.logService.getTenantLogs(tenantDbName, getLogsDto);
+  }
+
+  @Get('all')
+  @Roles([ERole.SUPER_ADMIN])
+  @ApiOperation({ summary: 'Get all logs' })
+  @ApiOkResponse({ type: [LogResponseDto] })
+  async getAllLogs(): Promise<LogResponseDto[]> {
+    return this.logService.getAllLogs();
   }
 }

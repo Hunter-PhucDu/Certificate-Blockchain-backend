@@ -9,7 +9,7 @@ export class GetLogsRequestDto extends PaginationDto {
   @ApiProperty({
     required: false,
     type: String,
-    description: 'Search pattern by action',
+    description: 'Search pattern by username or action',
   })
   @IsOptional()
   @IsString()

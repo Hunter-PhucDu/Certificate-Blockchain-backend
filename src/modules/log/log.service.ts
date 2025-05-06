@@ -45,7 +45,7 @@ export class LogService {
       return decrypted;
     } catch (error) {
       console.error('Error decrypting payload:', error);
-      return encryptedText; // Trả về payload gốc nếu không giải mã được
+      return encryptedText;
     }
   }
 
@@ -78,7 +78,11 @@ export class LogService {
   async getSystemLogs(getLogsDto: GetLogsRequestDto): Promise<ListRecordSuccessResponseDto<LogResponseDto>> {
     const { page, size, search } = getLogsDto;
     const skip = (page - 1) * size;
-    const query = search ? { action: { $regex: search, $options: 'i' } } : {};
+    const query = search
+      ? {
+          $or: [{ action: { $regex: search, $options: 'i' } }, { username: { $regex: search, $options: 'i' } }],
+        }
+      : {};
 
     const [logs, total] = await Promise.all([
       this.logModel.find(query).sort({ timestamp: -1 }).skip(skip).limit(size),
@@ -119,7 +123,11 @@ export class LogService {
   ): Promise<ListRecordSuccessResponseDto<LogResponseDto>> {
     const { page, size, search } = getLogsDto;
     const skip = (page - 1) * size;
-    const query = search ? { action: { $regex: search, $options: 'i' } } : {};
+    const query = search
+      ? {
+          $or: [{ action: { $regex: search, $options: 'i' } }, { username: { $regex: search, $options: 'i' } }],
+        }
+      : {};
 
     const tenantDb = this.connection.useDb(tenantDbName);
     const TenantLogModel = tenantDb.model<LogDocument>('Log', LogSchema, 'Logs');
@@ -142,5 +150,17 @@ export class LogService {
       metadata,
       data: logResponseDtos,
     };
+  }
+
+  async getAllLogs(): Promise<LogResponseDto[]> {
+    const logs = await this.logModel.find().sort({ timestamp: -1 });
+
+    return logs.map((log) => {
+      const logObj = log.toObject();
+      return plainToInstance(LogResponseDto, {
+        ...logObj,
+        payload: this.decrypt(logObj.payload),
+      });
+    });
   }
 }

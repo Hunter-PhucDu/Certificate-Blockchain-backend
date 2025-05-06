@@ -15,8 +15,8 @@ export class PaginationDto {
   @Expose()
   @ApiPropertyOptional({
     type: Number,
-    example: 10,
-    default: 10,
+    example: 20,
+    default: 20,
   })
   @Transform(({ value }) => parseInt(value) || 10)
   size?: number;
