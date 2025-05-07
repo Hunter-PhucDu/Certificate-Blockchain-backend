@@ -81,8 +81,8 @@ export class AuthController {
 
   @Post('/send-link-reset-password')
   @ApiOperation({
-    summary: 'Resend OTP code with email',
-    description: 'Resend OTP to admin email for forgot password',
+    summary: 'Send link reset password',
+    description: 'Verify OTP and send link to reset password',
   })
   async sendLinkRsPwOrganization(@Body() forgotPasswordDto: ForgotPasswordRequestDto): Promise<void> {
     return await this.authService.sendLinkResetPasswordOrganization(forgotPasswordDto);
@@ -90,8 +90,8 @@ export class AuthController {
 
   @Post('admin/send-link-reset-password')
   @ApiOperation({
-    summary: 'Resend OTP code with email',
-    description: 'Resend OTP to admin email for forgot password',
+    summary: 'Send link reset password',
+    description: 'Verify OTP and send link to reset password',
   })
   async sendLinkRsPwAdmin(@Body() forgotPasswordDto: ForgotPasswordRequestDto): Promise<void> {
     return await this.authService.sendLinkResetPasswordAdmin(forgotPasswordDto);
