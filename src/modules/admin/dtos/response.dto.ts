@@ -7,6 +7,14 @@ export class AdminResponseDto {
   @ApiProperty({
     type: String,
     required: true,
+    example: '1234567890abcdef12345678',
+  })
+  id: string;
+
+  @Expose()
+  @ApiProperty({
+    type: String,
+    required: true,
     example: 'Admin123',
   })
   username: string;
@@ -18,6 +26,13 @@ export class AdminResponseDto {
     example: 'example@gmail.com',
   })
   email: string;
+
+  @Expose()
+  @ApiProperty({
+    type: String,
+    required: true,
+  })
+  role: string;
 
   @Expose()
   @ApiProperty({

@@ -2,7 +2,11 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { OrganizationModel } from '../shared/models/organization.model';
 import { EmailService } from '../email/email.service';
 import { AddOrganizationRequestDto, UpdateOrganizationRequestDto, GetOrganizationsDto } from './dtos/request.dto';
-import { OrganizationResponseDto } from './dtos/response.dto';
+import {
+  OrganizationResponseDto,
+  OrganizationStatisticsResponseDto,
+  OrganizationMonthlyStatisticsResponseDto,
+} from './dtos/response.dto';
 
 import { AuthService } from '../auth/auth.service';
 import { plainToInstance } from 'class-transformer';
@@ -277,6 +281,64 @@ export class OrganizationService {
       await writeFile(path, buffer);
     } catch (error) {
       throw new BadRequestException('Error saving file');
+    }
+  }
+
+  async getOrganizationStatistics(): Promise<OrganizationStatisticsResponseDto> {
+    try {
+      const [totalOrganizations, organizationsWithout2FA, lockedOrganizations] = await Promise.all([
+        this.organizationModel.model.countDocuments(),
+        this.organizationModel.model.countDocuments({ twoFactorAuthEnabled: false }),
+        this.organizationModel.model.countDocuments({ isLocked: true }),
+      ]);
+
+      return {
+        totalOrganizations,
+        organizationsWithout2FA,
+        lockedOrganizations,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Error getting organization statistics: ${error.message}`);
+    }
+  }
+
+  async getOrganizationMonthlyStatistics(): Promise<OrganizationMonthlyStatisticsResponseDto[]> {
+    try {
+      const result = await this.organizationModel.model.aggregate([
+        {
+          $group: {
+            _id: {
+              year: { $year: '$createdAt' },
+              month: { $month: '$createdAt' },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            month: {
+              $concat: [
+                { $toString: '$_id.year' },
+                '-',
+                {
+                  $cond: {
+                    if: { $lt: ['$_id.month', 10] },
+                    then: { $concat: ['0', { $toString: '$_id.month' }] },
+                    else: { $toString: '$_id.month' },
+                  },
+                },
+              ],
+            },
+            count: 1,
+          },
+        },
+        { $sort: { month: 1 } },
+      ]);
+
+      return result;
+    } catch (error) {
+      throw new BadRequestException(`Error getting organization monthly statistics: ${error.message}`);
     }
   }
 }

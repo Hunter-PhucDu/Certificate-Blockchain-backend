@@ -17,7 +17,7 @@ import { plainToInstance } from 'class-transformer';
 import { getPagination } from 'modules/shared/utils/get-pagination';
 import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
-import { CertificateResponseDto } from './dtos/response.dto';
+import { CertificateResponseDto, CertificateStatisticsResponseDto } from './dtos/response.dto';
 import { GroupSchema } from '../shared/schemas/group.schema';
 import { LogService } from '../log/log.service';
 import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
@@ -253,6 +253,42 @@ export class CertificateService {
       await certificate.save();
     } catch (error) {
       throw new BadRequestException(`Error updating blockId: ${error.message}`);
+    }
+  }
+
+  async getCertificateStatistics(): Promise<CertificateStatisticsResponseDto> {
+    try {
+      const [totalCertificates, confirmedCertificates, pendingCertificates] = await Promise.all([
+        this.certificateModel.countDocuments(),
+        this.certificateModel.countDocuments({ blockId: { $ne: 'pending' } }),
+        this.certificateModel.countDocuments({ blockId: 'pending' }),
+        this.certificateModel.find().sort({ createdAt: -1 }).limit(5),
+      ]);
+
+      const certificatesByType = await this.certificateModel.aggregate([
+        {
+          $group: {
+            _id: '$certificateType',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            type: '$_id',
+            count: 1,
+            _id: 0,
+          },
+        },
+      ]);
+
+      return {
+        totalCertificates,
+        confirmedCertificates,
+        pendingCertificates,
+        certificatesByType,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Error getting certificate statistics: ${error.message}`);
     }
   }
 }

@@ -61,7 +61,6 @@ export class GetTenantsRequestDto extends PaginationDto {
   @Expose()
   @ApiProperty({
     required: false,
-    description: 'Search by name, subdomain or email',
   })
   @IsOptional()
   @IsString()

@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UseGuards 
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CertificateService } from './certificate.service';
 import { CreateCertificateRequestDto, GetCertificatesRequestDto, UpdateCertificateDto } from './dtos/request.dto';
-import { CertificateResponseDto } from './dtos/response.dto';
+import { CertificateResponseDto, CertificateStatisticsResponseDto } from './dtos/response.dto';
 import {
   ApiSuccessResponse,
   ApiSuccessPaginationResponse,
@@ -90,5 +90,18 @@ export class CertificateController {
   ): Promise<void> {
     const user: IJwtPayload = req.user;
     return this.certificateService.deleteCertificate(user, certificateId);
+  }
+
+  @Get('dashboard/statistics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ORGANIZATION])
+  @ApiOperation({
+    summary: 'Get certificate statistics',
+    description: 'Get statistics about certificates for dashboard',
+  })
+  @ApiSuccessResponse({ dataType: CertificateStatisticsResponseDto })
+  async getCertificateStatistics(): Promise<CertificateStatisticsResponseDto> {
+    return await this.certificateService.getCertificateStatistics();
   }
 }

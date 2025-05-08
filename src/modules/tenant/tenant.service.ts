@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { TenantModel } from 'modules/shared/models/tenant.model';
+import { OrganizationModel } from 'modules/shared/models/organization.model';
 import { AddTenantRequestDto, GetTenantsRequestDto, UpdateTenantRequestDto } from './dtos/request.dto';
-import { TenantResponseDto } from './dtos/response.dto';
+import { TenantResponseDto, TenantStatisticsResponseDto } from './dtos/response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { getPagination } from 'modules/shared/utils/get-pagination';
@@ -16,7 +17,7 @@ import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 export class TenantService {
   constructor(
     private readonly tenantModel: TenantModel,
-    private readonly organizationModel: TenantModel,
+    private readonly organizationModel: OrganizationModel,
     @InjectConnection() private readonly db: Connection,
     private readonly logService: LogService,
   ) {}
@@ -199,37 +200,16 @@ export class TenantService {
     }
   }
 
-  async getUnusedTenants(
-    paginationDto: GetTenantsRequestDto,
-  ): Promise<ListRecordSuccessResponseDto<TenantResponseDto>> {
-    const { page, size, search } = paginationDto;
-    const skip = (page - 1) * size;
-
-    const usedTenantIds = await this.organizationModel.model.distinct('tenantId');
-
-    const searchCondition: any = {
-      _id: { $nin: usedTenantIds },
-    };
-
-    if (search) {
-      searchCondition.$or = [
-        { tenantName: { $regex: new RegExp(search, 'i') } },
-        { subdomain: { $regex: new RegExp(search, 'i') } },
-      ];
+  async getUnusedTenants(): Promise<TenantResponseDto[]> {
+    try {
+      const usedTenantIds = await this.organizationModel.model.distinct('tenantId');
+      const unusedTenants = await this.tenantModel.model.find({
+        _id: { $nin: usedTenantIds },
+      });
+      return plainToInstance(TenantResponseDto, unusedTenants);
+    } catch (error) {
+      throw new BadRequestException(`Error getting unused tenants: ${error.message}`);
     }
-
-    const [tenants, totalItem] = await Promise.all([
-      this.tenantModel.model.find(searchCondition).skip(skip).limit(size).exec(),
-      this.tenantModel.model.countDocuments(searchCondition),
-    ]);
-
-    const metadata: MetadataResponseDto = getPagination(size, page, totalItem);
-    const tenantResponseDtos: TenantResponseDto[] = plainToInstance(TenantResponseDto, tenants);
-
-    return {
-      metadata,
-      data: tenantResponseDtos,
-    };
   }
 
   async deleteTenant(user: IJwtPayload, tenantId: string): Promise<void> {
@@ -281,5 +261,32 @@ export class TenantService {
     } catch (error) {
       throw new BadRequestException(`Error while getting tenant:${subdomain}-> ${error.message}`);
     }
+  }
+
+  async getTenantStatistics(): Promise<TenantStatisticsResponseDto> {
+    try {
+      const [totalTenants, activeTenants, suspendedTenants, unusedTenants] = await Promise.all([
+        this.tenantModel.model.countDocuments(),
+        this.tenantModel.model.countDocuments({ status: EStatus.ACTIVE }),
+        this.tenantModel.model.countDocuments({ status: EStatus.SUSPENDED }),
+        this.getUnusedTenantsCount(),
+      ]);
+
+      return {
+        totalTenants,
+        activeTenants,
+        suspendedTenants,
+        unusedTenants,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Error getting tenant statistics: ${error.message}`);
+    }
+  }
+
+  private async getUnusedTenantsCount(): Promise<number> {
+    const usedTenantIds = await this.organizationModel.model.distinct('tenantId');
+    return this.tenantModel.model.countDocuments({
+      _id: { $nin: usedTenantIds },
+    });
   }
 }

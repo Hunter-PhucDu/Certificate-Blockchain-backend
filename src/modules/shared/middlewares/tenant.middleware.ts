@@ -25,45 +25,56 @@ export class TenantMiddleware implements NestMiddleware {
       }
 
       const tenantDbName = `tenant_${tenant.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
-
       const tenantDb = this.connection.useDb(tenantDbName, { useCache: true });
 
       req['tenant'] = tenant;
       req['tenantDb'] = tenantDb;
+      req['subdomain'] = subdomain;
 
       next();
     } catch (error) {
+      console.error('TenantMiddleware error:', error);
       throw new NotFoundException(`Error in TenantMiddleware: ${error.message}`);
     }
   }
 
   private extractSubdomainFromOrigin(req: Request): string | null {
-    let origin: string | undefined = req.headers.origin as string;
-    if (!origin && req.headers.referer) {
-      try {
-        const refererUrl = new URL(req.headers.referer as string);
-        origin = refererUrl.origin;
-      } catch (err) {
-        throw new NotFoundException(`Failed to parse Referer URL: ${req.headers.referer}`);
-      }
-    }
-
+    const origin = req.headers.origin;
     if (origin) {
       try {
         const url = new URL(origin);
         const hostname = url.hostname;
         const parts = hostname.split('.');
 
-        if (parts.length >= 3) {
+        if (parts.length >= 2) {
           return parts[0];
-        } else {
-          throw new Error(`Hostname (${hostname}) does not have expected format`);
         }
       } catch (err) {
-        throw new NotFoundException(`Failed to parse Origin URL: ${origin}`);
+        console.error('Error parsing origin:', err);
       }
-    } else {
-      throw new NotFoundException('No Origin or Referer headers available to extract subdomain');
+    }
+
+    const referer = req.headers.referer;
+    if (referer) {
+      try {
+        const url = new URL(referer);
+        const hostname = url.hostname;
+
+        const parts = hostname.split('.');
+        if (parts.length >= 2) {
+          return parts[0];
+        }
+      } catch (err) {
+        console.error('Error parsing referer:', err);
+      }
+    }
+
+    const host = req.headers.host;
+    if (host) {
+      const parts = host.split('.');
+      if (parts.length >= 2) {
+        return parts[0];
+      }
     }
 
     return null;

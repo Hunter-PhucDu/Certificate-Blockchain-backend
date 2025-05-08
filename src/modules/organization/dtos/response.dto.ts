@@ -5,6 +5,14 @@ import { Exclude, Expose } from 'class-transformer';
 export class OrganizationResponseDto {
   @Expose()
   @ApiProperty({
+    type: String,
+    required: true,
+    example: '1234567890abcdef12345678',
+  })
+  id: string;
+
+  @Expose()
+  @ApiProperty({
     required: true,
     type: String,
     example: 'tenant_organiationA',
@@ -66,4 +74,40 @@ export class OrganizationResponseDto {
     example: '2021-01-01T00:00:00.000Z',
   })
   updatedAt: Date;
+}
+
+@Exclude()
+export class OrganizationStatisticsResponseDto {
+  @Expose()
+  @ApiProperty({
+    type: Number,
+  })
+  totalOrganizations: number;
+
+  @Expose()
+  @ApiProperty({
+    type: Number,
+  })
+  organizationsWithout2FA: number;
+
+  @Expose()
+  @ApiProperty({
+    type: Number,
+  })
+  lockedOrganizations: number;
+}
+
+@Exclude()
+export class OrganizationMonthlyStatisticsResponseDto {
+  @Expose()
+  @ApiProperty({
+    type: String,
+  })
+  month: string;
+
+  @Expose()
+  @ApiProperty({
+    type: Number,
+  })
+  count: number;
 }

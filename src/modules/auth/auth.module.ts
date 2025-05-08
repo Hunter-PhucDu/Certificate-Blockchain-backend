@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, Scope, forwardRef } from '@nestjs/common';
 import { SharedModule } from 'modules/shared/shared.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -8,7 +8,13 @@ import { TenantModule } from 'modules/tenant/tenant.module';
 
 @Module({
   imports: [SharedModule, forwardRef(() => EmailModule), forwardRef(() => LogModule), forwardRef(() => TenantModule)],
-  providers: [AuthService],
+  providers: [
+    {
+      provide: AuthService,
+      useClass: AuthService,
+      scope: Scope.REQUEST,
+    },
+  ],
   controllers: [AuthController],
   exports: [AuthService],
 })

@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-// import { REQUEST } from '@nestjs/core';
-// import { Request } from 'express';
+import { BadRequestException, Injectable, Inject } from '@nestjs/common';
+import { REQUEST } from '@nestjs/core';
+import { Request } from 'express';
 import {
   OtpForgotPasswordRequestDto,
   ForgotPasswordRequestDto,
@@ -28,6 +28,7 @@ import { TenantModel } from 'modules/shared/models/tenant.model';
 @Injectable()
 export class AuthService {
   constructor(
+    @Inject(REQUEST) private readonly request: Request,
     private readonly jwtService: JwtService,
     private readonly adminModel: AdminModel,
     private readonly organizationModel: OrganizationModel,
@@ -138,6 +139,7 @@ export class AuthService {
               username: admin.username,
               email: admin.email,
               reason: 'Too many failed login attempts',
+              checkPw: checkPw,
             }),
           );
 
@@ -164,14 +166,29 @@ export class AuthService {
   async loginOrganization(loginDto: LoginRequestDto): Promise<OrganizationLoginResponseDto> {
     try {
       const { username, password } = loginDto;
+      const subdomain = this.request['subdomain'];
 
-      const organization = await this.organizationModel.model.findOne({
-        $or: [{ username }, { email: username }],
+      if (!subdomain) {
+        throw new BadRequestException('Subdomain is required');
+      }
+
+      const tenant = await this.tenantModel.model.findOne({ subdomain });
+
+      if (!tenant) {
+        throw new BadRequestException('Invalid subdomain');
+      }
+
+      const organizationByEmail = await this.organizationModel.model.findOne({
+        email: username,
       });
+
+      const organization =
+        organizationByEmail && organizationByEmail.tenantId.toString() === tenant._id.toString()
+          ? organizationByEmail
+          : null;
 
       if (organization) {
         const checkPw = await this.checkPassword(password, organization.password);
-
         if (organization.isLocked) {
           await this.logService.createSystemLog(
             organization.email,
@@ -197,21 +214,18 @@ export class AuthService {
           const refreshToken = await this.generateRefreshToken(organization._id, organization.email, organization.role);
           const tokens = { accessToken, refreshToken };
 
-          const tenantDoc = await this.tenantModel.model.findById(organization.tenantId);
-          if (tenantDoc) {
-            const tenantDbName = `tenant_${tenantDoc.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
-            await this.logService.createTenantLog(
-              tenantDbName,
-              organization.email,
-              organization.role,
-              'ORGANIZATION_LOGIN_SUCCESS',
-              JSON.stringify({
-                organizationId: organization._id,
-                email: organization.email,
-                role: organization.role,
-              }),
-            );
-          }
+          const tenantDbName = `tenant_${tenant.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
+          await this.logService.createTenantLog(
+            tenantDbName,
+            organization.email,
+            organization.role,
+            'ORGANIZATION_LOGIN_SUCCESS',
+            JSON.stringify({
+              organizationId: organization._id,
+              email: organization.email,
+              role: organization.role,
+            }),
+          );
 
           return tokens;
         }
@@ -223,22 +237,19 @@ export class AuthService {
             { new: true },
           );
 
-          const tenantDoc = await this.tenantModel.model.findById(organization.tenantId);
-          if (tenantDoc) {
-            const tenantDbName = `tenant_${tenantDoc.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
-            await this.logService.createTenantLog(
-              tenantDbName,
-              organization.email,
-              organization.role,
-              'ORGANIZATION_LOGIN_FAILED',
-              JSON.stringify({
-                organizationId: organization._id,
-                email: organization.email,
-                reason: 'Invalid password',
-                remainingAttempts: 4 - organization.loginAttempts,
-              }),
-            );
-          }
+          const tenantDbName = `tenant_${tenant.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
+          await this.logService.createTenantLog(
+            tenantDbName,
+            organization.email,
+            organization.role,
+            'ORGANIZATION_LOGIN_FAILED',
+            JSON.stringify({
+              organizationId: organization._id,
+              email: organization.email,
+              reason: 'Invalid password',
+              remainingAttempts: 4 - organization.loginAttempts,
+            }),
+          );
 
           throw new BadRequestException(
             `Username or password is incorrect. You have \`${4 - organization.loginAttempts}\` attempts to try. If you're wrong, the account will be locked.`,
@@ -252,26 +263,22 @@ export class AuthService {
             { new: true },
           );
 
-          const tenantDoc = await this.tenantModel.model.findById(organization.tenantId);
-          if (tenantDoc) {
-            const tenantDbName = `tenant_${tenantDoc.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
-            await this.logService.createTenantLog(
-              tenantDbName,
-              organization.email,
-              organization.role,
-              'ORGANIZATION_ACCOUNT_LOCKED',
-              JSON.stringify({
-                organizationId: organization._id,
-                email: organization.email,
-                reason: 'Too many failed login attempts',
-              }),
-            );
-          }
+          const tenantDbName = `tenant_${tenant.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
+          await this.logService.createTenantLog(
+            tenantDbName,
+            organization.email,
+            organization.role,
+            'ORGANIZATION_ACCOUNT_LOCKED',
+            JSON.stringify({
+              organizationId: organization._id,
+              email: organization.email,
+              reason: 'Too many failed login attempts',
+            }),
+          );
 
           throw new BadRequestException('Account is locked. Please contact the administrator.');
         }
       }
-
       throw new BadRequestException('Username or password is incorrect.');
     } catch (error) {
       throw new BadRequestException(`Error while login: ${error.message}`);

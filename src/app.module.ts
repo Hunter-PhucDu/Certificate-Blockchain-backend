@@ -35,6 +35,13 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TenantMiddleware)
-      .forRoutes({ path: 'groups*', method: RequestMethod.ALL }, { path: 'certificates*', method: RequestMethod.ALL });
+      .forRoutes(
+        { path: 'groups*', method: RequestMethod.ALL },
+        { path: 'certificates*', method: RequestMethod.ALL },
+        { path: 'auth/organization/sign-in', method: RequestMethod.POST },
+        { path: 'auth/get-otp-forgot-password', method: RequestMethod.POST },
+        { path: 'auth/resend-otp-forgot-password', method: RequestMethod.POST },
+        { path: 'auth/send-link-reset-password', method: RequestMethod.POST },
+      );
   }
 }

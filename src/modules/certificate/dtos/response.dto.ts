@@ -68,3 +68,40 @@ export class CertificateListResponseDto {
   @ApiProperty({ example: 100 })
   total: number;
 }
+
+@Exclude()
+export class CertificateStatisticsResponseDto {
+  @Expose()
+  @ApiProperty({
+    type: Number,
+    required: true,
+    example: 100,
+  })
+  totalCertificates: number;
+
+  @Expose()
+  @ApiProperty({
+    type: Number,
+    required: true,
+    example: 80,
+  })
+  confirmedCertificates: number;
+
+  @Expose()
+  @ApiProperty({
+    type: Number,
+    required: true,
+    example: 20,
+  })
+  pendingCertificates: number;
+
+  @Expose()
+  @ApiProperty({
+    type: [Object],
+    required: true,
+  })
+  certificatesByType: {
+    type: string;
+    count: number;
+  }[];
+}

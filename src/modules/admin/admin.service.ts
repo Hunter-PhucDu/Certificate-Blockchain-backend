@@ -24,7 +24,7 @@ export class AdminService {
     private readonly logService: LogService,
   ) {}
 
-  async addAdmin(addAdminDto: AddAdminRequestDto): Promise<AdminResponseDto> {
+  async addAdmin(user: IJwtPayload, addAdminDto: AddAdminRequestDto): Promise<AdminResponseDto> {
     try {
       const { username, email, password } = addAdminDto;
       const existedUser = await this.adminModel.model.findOne({ username, email });
@@ -44,8 +44,8 @@ export class AdminService {
       });
 
       await this.logService.createSystemLog(
-        'system',
-        ERole.SUPER_ADMIN,
+        user.username,
+        user.role,
         'CREATE_ADMIN',
         JSON.stringify({
           adminId: newUser._id,
@@ -74,19 +74,22 @@ export class AdminService {
     }
   }
 
-  async updateAdmin(user: IJwtPayload, updateAdminDto: UpdateAdminRequestDto): Promise<AdminResponseDto> {
+  async updateAdmin(
+    user: IJwtPayload,
+    adminId: string,
+    updateAdminDto: UpdateAdminRequestDto,
+  ): Promise<AdminResponseDto> {
     try {
-      const userDoc = await this.adminModel.model.findById({ _id: user._id });
+      const userDoc = await this.adminModel.model.findById({ _id: adminId });
       if (!userDoc) {
         await this.logService.createSystemLog(
           user.username,
           user.role,
           'UPDATE_ADMIN_FAILED',
           JSON.stringify({
-            adminId: user._id,
-            updates: {
-              username: updateAdminDto.username,
-            },
+            adminId: adminId,
+            old_username: userDoc.username,
+            update: updateAdminDto.username,
           }),
         );
 
@@ -94,7 +97,7 @@ export class AdminService {
       }
 
       const updatedUser = await this.adminModel.model.findOneAndUpdate(
-        { _id: user._id },
+        { _id: adminId },
         { $set: updateAdminDto },
         { new: true },
       );
@@ -104,10 +107,9 @@ export class AdminService {
         user.role,
         'UPDATE_ADMIN',
         JSON.stringify({
-          adminId: user._id,
-          updates: {
-            username: updateAdminDto.username,
-          },
+          adminId: adminId,
+          old_username: userDoc.username,
+          update: updateAdminDto.username,
         }),
       );
 

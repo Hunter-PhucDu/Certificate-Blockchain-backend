@@ -9,7 +9,7 @@ import { ERole } from 'modules/shared/enums/auth.enum';
 import { JwtAuthGuard } from 'modules/shared/gaurds/jwt.guard';
 import { RolesGuard } from 'modules/shared/gaurds/role.gaurd';
 import { AddTenantRequestDto, GetTenantsRequestDto, UpdateTenantRequestDto } from './dtos/request.dto';
-import { TenantResponseDto } from './dtos/response.dto';
+import { TenantResponseDto, TenantStatisticsResponseDto } from './dtos/response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { TenantService } from './tenant.service';
 import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
@@ -74,13 +74,11 @@ export class TenantController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({
     summary: 'Get all unused tenants',
-    description: 'Get all unused tenants with pagination',
+    description: 'Get all tenants that are not used by any organization',
   })
-  @ApiSuccessPaginationResponse({ dataType: TenantResponseDto })
-  async getAllUnusedTenants(
-    @Query() getTenantsRequestDto: GetTenantsRequestDto,
-  ): Promise<ListRecordSuccessResponseDto<TenantResponseDto>> {
-    return await this.tenantServitce.getUnusedTenants(getTenantsRequestDto);
+  @ApiSuccessResponse({ dataType: TenantResponseDto, isArray: true })
+  async getAllUnusedTenants(): Promise<TenantResponseDto[]> {
+    return await this.tenantServitce.getUnusedTenants();
   }
 
   @Get(':tenantId')
@@ -103,5 +101,16 @@ export class TenantController {
   async deleteTenant(@Param('tenantId') tenantId: string, @Req() req): Promise<void> {
     const user: IJwtPayload = req.user;
     await this.tenantServitce.deleteTenant(user, tenantId);
+  }
+
+  @Get('dashboard/statistics')
+  @Roles([ERole.SUPER_ADMIN, ERole.ADMIN])
+  @ApiOperation({
+    summary: 'Get tenant statistics',
+    description: 'Get statistics about tenants for dashboard',
+  })
+  @ApiSuccessResponse({ dataType: TenantStatisticsResponseDto })
+  async getTenantStatistics(): Promise<TenantStatisticsResponseDto> {
+    return await this.tenantServitce.getTenantStatistics();
   }
 }

@@ -16,7 +16,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { GetOrganizationsDto, AddOrganizationRequestDto, UpdateOrganizationRequestDto } from './dtos/request.dto';
-import { OrganizationResponseDto } from './dtos/response.dto';
+import {
+  OrganizationResponseDto,
+  OrganizationStatisticsResponseDto,
+  OrganizationMonthlyStatisticsResponseDto,
+} from './dtos/response.dto';
 import { OrganizationService } from './organization.service';
 import { ApiSuccessPaginationResponse } from '../shared/decorators/api-success-response.decorator';
 import { JwtAuthGuard } from 'modules/shared/gaurds/jwt.guard';
@@ -26,6 +30,7 @@ import { Roles } from 'modules/shared/decorators/role.decorator';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { ValidateObjectId } from 'modules/shared/validators/id.validator';
 import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
+import { ApiSuccessResponse } from '../shared/decorators/api-success-response.decorator';
 
 @Controller('organizations')
 @ApiTags('Organizations')
@@ -88,5 +93,27 @@ export class OrganizationController {
   ): Promise<void> {
     const user: IJwtPayload = req.user;
     return this.organizationService.deleteOrganization(user, organizationId);
+  }
+
+  @Get('dashboard/statistics')
+  @Roles([ERole.SUPER_ADMIN, ERole.ADMIN])
+  @ApiOperation({
+    summary: 'Get organization statistics',
+    description: 'Get statistics about organizations for dashboard',
+  })
+  @ApiSuccessResponse({ dataType: OrganizationStatisticsResponseDto })
+  async getOrganizationStatistics(): Promise<OrganizationStatisticsResponseDto> {
+    return this.organizationService.getOrganizationStatistics();
+  }
+
+  @Get('dashboard/monthly-statistics')
+  @Roles([ERole.SUPER_ADMIN, ERole.ADMIN])
+  @ApiOperation({
+    summary: 'Get organization monthly statistics',
+    description: 'Get monthly statistics about organization creation for chart',
+  })
+  @ApiSuccessResponse({ dataType: [OrganizationMonthlyStatisticsResponseDto] })
+  async getOrganizationMonthlyStatistics(): Promise<OrganizationMonthlyStatisticsResponseDto[]> {
+    return this.organizationService.getOrganizationMonthlyStatistics();
   }
 }

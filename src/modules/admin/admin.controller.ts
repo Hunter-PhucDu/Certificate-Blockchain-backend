@@ -18,6 +18,7 @@ import { AdminResponseDto } from './dtos/response.dto';
 import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 import { AdminService } from './admin.service';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
+import { ValidateObjectId } from 'modules/shared/validators/id.validator';
 
 @Controller('admins')
 @ApiTags('Admin')
@@ -37,11 +38,12 @@ export class AdminController {
     type: AddAdminRequestDto,
   })
   @ApiSuccessResponse({ dataType: AdminResponseDto })
-  async addAdmin(@Body() addAdminDto: AddAdminRequestDto): Promise<AdminResponseDto> {
-    return await this.adminService.addAdmin(addAdminDto);
+  async addAdmin(@Body() addAdminDto: AddAdminRequestDto, @Req() req): Promise<AdminResponseDto> {
+    const user: IJwtPayload = req.user;
+    return await this.adminService.addAdmin(user, addAdminDto);
   }
 
-  @Patch('')
+  @Patch(':adminId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
   @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
@@ -50,9 +52,13 @@ export class AdminController {
     description: 'Update username',
   })
   @ApiSuccessResponse({ dataType: AdminResponseDto })
-  async updateAdmin(@Body() updateDto: UpdateAdminRequestDto, @Req() req): Promise<AdminResponseDto> {
+  async updateAdmin(
+    @Param('adminId', new ValidateObjectId()) adminId: string,
+    @Body() updateDto: UpdateAdminRequestDto,
+    @Req() req,
+  ): Promise<AdminResponseDto> {
     const user: IJwtPayload = req.user;
-    return await this.adminService.updateAdmin(user, updateDto);
+    return await this.adminService.updateAdmin(user, adminId, updateDto);
   }
 
   @Get('')
