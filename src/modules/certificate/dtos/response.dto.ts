@@ -105,3 +105,21 @@ export class CertificateStatisticsResponseDto {
     count: number;
   }[];
 }
+
+@Exclude()
+export class BulkCreateCertificateResponseDto {
+  @Expose()
+  @ApiProperty({ example: '6c8be540a58ab69a3c0ca7643428ae367d43632ab558b57b87f37be5d91048ea' })
+  txId: string;
+
+  @Expose()
+  @ApiProperty({ example: 10 })
+  certificatesCount: number;
+
+  @Expose()
+  @ApiProperty({
+    example: ['660d46b09b4b6a001f841b1e', '660d46b09b4b6a001f841b1f'],
+    description: 'List of created certificate IDs in MongoDB',
+  })
+  certificateIds: string[];
+}

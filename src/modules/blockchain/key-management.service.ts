@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import { Injectable } from '@nestjs/common';
 import * as bip39 from 'bip39';
 import * as Cardano from '@emurgo/cardano-serialization-lib-nodejs';
@@ -78,5 +79,41 @@ export class KeyManagementService {
     } else {
       return false;
     }
+  }
+
+  private async deriveChildKey(parentKey: Cardano.PrivateKey, index: number): Promise<Cardano.PrivateKey> {
+    const parentKeyBytes = parentKey.as_bytes();
+    const combinedBytes = Buffer.concat([Buffer.from(parentKeyBytes), Buffer.from([index])]);
+
+    const entropy = await this.hashData(combinedBytes);
+
+    return Cardano.PrivateKey.from_extended_bytes(Buffer.from(entropy.slice(0, 64)));
+  }
+
+  private async hashData(data: Buffer): Promise<Uint8Array> {
+    const { createHash } = require('crypto');
+    const hash = createHash('sha512');
+    hash.update(data);
+    return new Uint8Array(hash.digest());
+  }
+
+  async generateChildAddresses(privateKeyBech32: string, count: number): Promise<string[]> {
+    const privateKey = Cardano.PrivateKey.from_bech32(privateKeyBech32);
+    const addresses: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const childKey = await this.deriveChildKey(privateKey, i);
+      const publicKey = childKey.to_public();
+
+      const networkId = 0;
+      const enterpriseAddress = Cardano.EnterpriseAddress.new(
+        networkId,
+        Cardano.Credential.from_keyhash(publicKey.hash()),
+      );
+
+      addresses.push(enterpriseAddress.to_address().to_bech32());
+    }
+
+    return addresses;
   }
 }

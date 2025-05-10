@@ -6,6 +6,7 @@ import { Model } from 'mongoose';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import {
   BlockchainRequestDto,
+  BulkCreateCertificateRequestDto,
   CreateCertificateRequestDto,
   GetCertificatesRequestDto,
   UpdateCertificateDto,
@@ -17,7 +18,11 @@ import { plainToInstance } from 'class-transformer';
 import { getPagination } from 'modules/shared/utils/get-pagination';
 import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
-import { CertificateResponseDto, CertificateStatisticsResponseDto } from './dtos/response.dto';
+import {
+  BulkCreateCertificateResponseDto,
+  CertificateResponseDto,
+  CertificateStatisticsResponseDto,
+} from './dtos/response.dto';
 import { GroupSchema } from '../shared/schemas/group.schema';
 import { LogService } from '../log/log.service';
 import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
@@ -119,16 +124,11 @@ export class CertificateService {
 
       const txHash = await this.processCertificate(blockchainData);
 
-      const certificateData = {
-        groupId: certificate.groupId,
-        certificateType: certificate.certificateType,
-        certificateData: plainCertificateData,
-        txHash,
-        blockId: 'pending',
-      };
+      certificate.certificateData = plainCertificateData;
+      certificate.txHash = txHash;
+      certificate.blockId = 'pending';
 
-      const newCertificate = new this.certificateModel(certificateData);
-      const savedCertificate = await newCertificate.save();
+      const updatedCertificate = await certificate.save();
 
       const tenantDbName = this.request['tenantDbName'];
       await this.logService.createTenantLog(
@@ -138,14 +138,13 @@ export class CertificateService {
         'UPDATE_CERTIFICATE',
         JSON.stringify({
           certificateId: id,
-          newCertificateId: savedCertificate._id,
-          certificateType: savedCertificate.certificateType,
-          groupId: savedCertificate.groupId,
-          txHash: savedCertificate.txHash,
+          certificateType: updatedCertificate.certificateType,
+          groupId: updatedCertificate.groupId,
+          txHash: updatedCertificate.txHash,
         }),
       );
 
-      const plainObject = savedCertificate.toObject();
+      const plainObject = updatedCertificate.toObject();
       return plainToInstance(CertificateResponseDto, plainObject);
     } catch (error) {
       throw new BadRequestException(`Error updating certificate: ${error.message}`);
@@ -244,13 +243,13 @@ export class CertificateService {
 
   async updateBlockId(txHash: string, blockId: string): Promise<void> {
     try {
-      const certificate = await this.certificateModel.findOne({ txHash });
-      if (!certificate) {
-        throw new NotFoundException(`Certificate with txHash ${txHash} not found`);
+      const certificates = await this.certificateModel.find({ txHash });
+
+      if (!certificates || certificates.length === 0) {
+        throw new NotFoundException(`No certificates found with txHash ${txHash}`);
       }
 
-      certificate.blockId = blockId;
-      await certificate.save();
+      await this.certificateModel.updateMany({ txHash }, { $set: { blockId } });
     } catch (error) {
       throw new BadRequestException(`Error updating blockId: ${error.message}`);
     }
@@ -289,6 +288,73 @@ export class CertificateService {
       };
     } catch (error) {
       throw new BadRequestException(`Error getting certificate statistics: ${error.message}`);
+    }
+  }
+
+  async processBulkCertificates(
+    user: IJwtPayload,
+    bulkCreateDto: BulkCreateCertificateRequestDto,
+  ): Promise<BulkCreateCertificateResponseDto> {
+    try {
+      const tenantDb = this.request['tenantDb'];
+      const groupModel = tenantDb.model('Groups', GroupSchema);
+      const group = await groupModel.findById(bulkCreateDto.groupId);
+
+      if (!group) {
+        throw new NotFoundException('Group not found');
+      }
+
+      const blockchainRequestDtos: BlockchainRequestDto[] = bulkCreateDto.certificatesData.map((certificateData) => ({
+        certificateType: bulkCreateDto.certificateType,
+        certificateData: JSON.parse(JSON.stringify(certificateData)),
+      }));
+
+      const privateKey = await this.blockchainService.getPrivateKeyFromMnemonic();
+
+      const { txId, childAddresses } = await this.blockchainService.buildAndSignBulkTransaction(
+        blockchainRequestDtos,
+        privateKey,
+      );
+
+      const certificateIds: string[] = [];
+
+      for (let i = 0; i < blockchainRequestDtos.length; i++) {
+        const certificateData = {
+          groupId: bulkCreateDto.groupId,
+          certificateType: bulkCreateDto.certificateType,
+          certificateData: blockchainRequestDtos[i].certificateData,
+          txHash: txId,
+          blockId: 'pending',
+          certificateIndex: i,
+          childAddress: childAddresses[i],
+        };
+
+        const certificate = new this.certificateModel(certificateData);
+        const savedCertificate = await certificate.save();
+        certificateIds.push(savedCertificate._id.toString());
+      }
+
+      const tenantDbName = this.request['tenantDbName'];
+      await this.logService.createTenantLog(
+        tenantDbName,
+        user.username,
+        user.role,
+        'BULK_CREATE_CERTIFICATES',
+        JSON.stringify({
+          txHash: txId,
+          certificateType: bulkCreateDto.certificateType,
+          groupId: bulkCreateDto.groupId,
+          count: certificateIds.length,
+        }),
+      );
+
+      return {
+        txId,
+        certificatesCount: certificateIds.length,
+        certificateIds,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Error creating bulk certificates: ${error.message}`);
     }
   }
 }

@@ -112,4 +112,32 @@ export class BlockfrostService {
       throw new Error(`Error fetching metadata: ${error.response?.data?.message || error.message}`);
     }
   }
+
+  async getBulkTransactionMetadata(txHash: string, index?: number): Promise<any> {
+    try {
+      const metadata = await this.getTransactionMetadata(txHash);
+
+      if (!metadata || metadata.length === 0) {
+        throw new Error(`No metadata found for transaction: ${txHash}`);
+      }
+
+      // If index is not provided, return all metadata
+      if (index === undefined) {
+        return metadata;
+      }
+
+      // Filter metadata by index
+      // Based on the metadata structure defined in buildBulkCertificateMetadata
+      const indexStr = `${674}${index + 1}`;
+      const filteredMetadata = metadata.filter((item) => item.label === indexStr);
+
+      if (filteredMetadata.length === 0) {
+        throw new Error(`No metadata found for certificate index ${index} in transaction: ${txHash}`);
+      }
+
+      return filteredMetadata;
+    } catch (error: any) {
+      throw new Error(`Error fetching bulk metadata: ${error.message}`);
+    }
+  }
 }

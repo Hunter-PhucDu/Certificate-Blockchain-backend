@@ -46,6 +46,12 @@ export class Certificate {
     default: [],
   })
   certificateData: object[];
+
+  @Prop({ type: Number, required: false })
+  certificateIndex: number;
+
+  @Prop({ type: String, required: false })
+  childAddress: string;
 }
 
 export const CertificateSchema = SchemaFactory.createForClass(Certificate);
@@ -53,3 +59,5 @@ export const CertificateSchema = SchemaFactory.createForClass(Certificate);
 CertificateSchema.plugin(mongoosePaginate);
 
 CertificateSchema.index({ groupId: 1, certificateType: 1 });
+CertificateSchema.index({ txHash: 1, certificateIndex: 1 }, { unique: true, sparse: true });
+CertificateSchema.index({ childAddress: 1 }, { sparse: true });

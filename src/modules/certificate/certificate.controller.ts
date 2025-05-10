@@ -1,8 +1,17 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CertificateService } from './certificate.service';
-import { CreateCertificateRequestDto, GetCertificatesRequestDto, UpdateCertificateDto } from './dtos/request.dto';
-import { CertificateResponseDto, CertificateStatisticsResponseDto } from './dtos/response.dto';
+import {
+  BulkCreateCertificateRequestDto,
+  CreateCertificateRequestDto,
+  GetCertificatesRequestDto,
+  UpdateCertificateDto,
+} from './dtos/request.dto';
+import {
+  BulkCreateCertificateResponseDto,
+  CertificateResponseDto,
+  CertificateStatisticsResponseDto,
+} from './dtos/response.dto';
 import {
   ApiSuccessResponse,
   ApiSuccessPaginationResponse,
@@ -32,6 +41,23 @@ export class CertificateController {
   ): Promise<CertificateResponseDto> {
     const user: IJwtPayload = req.user;
     return this.certificateService.createCertificate(user, createCertificateDto);
+  }
+
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles([ERole.ORGANIZATION])
+  @ApiOperation({
+    summary: 'Create multiple certificates in a single transaction',
+    description: 'Create multiple certificates with a single blockchain transaction to reduce transaction fees',
+  })
+  @ApiSuccessResponse({ dataType: BulkCreateCertificateResponseDto })
+  async createBulkCertificates(
+    @Body() bulkCreateDto: BulkCreateCertificateRequestDto,
+    @Req() req,
+  ): Promise<BulkCreateCertificateResponseDto> {
+    const user: IJwtPayload = req.user;
+    return this.certificateService.processBulkCertificates(user, bulkCreateDto);
   }
 
   @Put(':certificateId')

@@ -136,3 +136,38 @@ export class GetCertificatesRequestDto extends PaginationDto {
   @IsString()
   search?: string;
 }
+
+@Exclude()
+export class BulkCreateCertificateRequestDto {
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: '660d46b09b4b6a001f841b1e',
+  })
+  @IsNotEmpty()
+  groupId: string;
+
+  @Expose()
+  @ApiProperty({
+    type: String,
+    required: true,
+    description: 'Type of the certificate',
+    example: "Bachelor's degree",
+  })
+  @IsString()
+  @IsNotEmpty()
+  certificateType: string;
+
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: () => [CertificateDataDto],
+    isArray: true,
+    description: 'List of certificate data objects, one for each certificate to create',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CertificateDataDto)
+  @ArrayMinSize(1)
+  certificatesData: CertificateDataDto[][];
+}
