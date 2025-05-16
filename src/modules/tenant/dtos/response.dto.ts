@@ -90,3 +90,22 @@ export class TenantStatisticsResponseDto {
   })
   unusedTenants: number;
 }
+
+@Exclude()
+export class SubdomainResponseDto {
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: 'Organization Name',
+  })
+  organizationName: string;
+
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: 'org-subdomain.domain.com',
+  })
+  subdomain: string;
+}

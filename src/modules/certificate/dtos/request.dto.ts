@@ -171,3 +171,16 @@ export class BulkCreateCertificateRequestDto {
   @ArrayMinSize(1)
   certificatesData: CertificateDataDto[][];
 }
+
+@Exclude()
+export class SearchCertificateByValueRequestDto {
+  @Expose()
+  @ApiProperty({
+    required: true,
+    type: String,
+    example: 'SN_0001',
+  })
+  @IsString()
+  @IsNotEmpty()
+  searchValue: string;
+}

@@ -6,6 +6,7 @@ import {
   CreateCertificateRequestDto,
   GetCertificatesRequestDto,
   UpdateCertificateDto,
+  SearchCertificateByValueRequestDto,
 } from './dtos/request.dto';
 import {
   BulkCreateCertificateResponseDto,
@@ -75,12 +76,6 @@ export class CertificateController {
     return this.certificateService.updateCertificate(user, certificateId, updateDto);
   }
 
-  @Get('tx/:txHash')
-  @ApiOperation({ summary: 'Get certificate metadata by transaction hash' })
-  async getCertificateByTxHash(@Param('txHash') txHash: string) {
-    return await this.certificateService.getCertificateByTxHash(txHash);
-  }
-
   @Get(':certificateId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
@@ -129,5 +124,17 @@ export class CertificateController {
   @ApiSuccessResponse({ dataType: CertificateStatisticsResponseDto })
   async getCertificateStatistics(): Promise<CertificateStatisticsResponseDto> {
     return await this.certificateService.getCertificateStatistics();
+  }
+
+  @Get('search-by-value')
+  @ApiOperation({
+    summary: 'Search certificate by value',
+    description: 'Search certificate by value',
+  })
+  @ApiSuccessResponse({ dataType: [CertificateResponseDto] })
+  async searchCertificateByValue(
+    @Query() searchDto: SearchCertificateByValueRequestDto,
+  ): Promise<CertificateResponseDto[]> {
+    return this.certificateService.searchCertificateByValue(searchDto);
   }
 }
