@@ -6,11 +6,10 @@ import { BlockchainModule } from 'modules/blockchain/blockchain.module';
 import { AuthModule } from '../auth/auth.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { BlockConfirmationJob } from './job/block-confirmation.job';
-import { ScheduleModule } from '@nestjs/schedule';
 import { LogModule } from 'modules/log/log.module';
 
 @Module({
-  imports: [SharedModule, BlockchainModule, AuthModule, TenantModule, LogModule, ScheduleModule.forRoot()],
+  imports: [SharedModule, BlockchainModule, AuthModule, TenantModule, LogModule],
   controllers: [CertificateController],
   providers: [
     {
@@ -18,7 +17,11 @@ import { LogModule } from 'modules/log/log.module';
       useClass: CertificateService,
       scope: Scope.REQUEST,
     },
-    BlockConfirmationJob,
+    {
+      provide: BlockConfirmationJob,
+      useClass: BlockConfirmationJob,
+      scope: Scope.DEFAULT,
+    },
   ],
   exports: [CertificateService],
 })

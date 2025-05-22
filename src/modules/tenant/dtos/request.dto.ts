@@ -66,3 +66,12 @@ export class GetTenantsRequestDto extends PaginationDto {
   @IsString()
   search?: string;
 }
+
+@Exclude()
+export class GetSubdomainsRequestDto extends PaginationDto {
+  @Expose()
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  search?: string;
+}

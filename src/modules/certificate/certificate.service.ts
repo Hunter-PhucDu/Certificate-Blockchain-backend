@@ -9,9 +9,9 @@ import {
   BulkCreateCertificateRequestDto,
   CreateCertificateRequestDto,
   GetCertificatesRequestDto,
+  SearchCertificateByValueRequestDto,
   UpdateCertificateDto,
 } from './dtos/request.dto';
-import { BlockfrostService } from 'modules/blockchain/blockfrost.service';
 import { Certificate } from '../shared/schemas/certificate.schema';
 import { CertificateSchema } from '../shared/schemas/certificate.schema';
 import { plainToInstance } from 'class-transformer';
@@ -40,7 +40,6 @@ export class CertificateService {
   constructor(
     @Inject(REQUEST) private readonly request: Request,
     private readonly blockchainService: BlockchainService,
-    private readonly blockfrostService: BlockfrostService,
     private readonly logService: LogService,
   ) {}
 
@@ -148,19 +147,6 @@ export class CertificateService {
       return plainToInstance(CertificateResponseDto, plainObject);
     } catch (error) {
       throw new BadRequestException(`Error updating certificate: ${error.message}`);
-    }
-  }
-
-  async getCertificateByTxHash(txHash: string): Promise<any> {
-    try {
-      const metadata = await this.blockfrostService.getTransactionMetadata(txHash);
-
-      if (!metadata || metadata.length === 0) {
-        throw new Error(`No metadata found for transaction: ${txHash}`);
-      }
-      return metadata;
-    } catch (error) {
-      throw new BadRequestException(`Error getting certificate by txHash: ${error.message}`);
     }
   }
 
@@ -355,6 +341,26 @@ export class CertificateService {
       };
     } catch (error) {
       throw new BadRequestException(`Error creating bulk certificates: ${error.message}`);
+    }
+  }
+
+  async searchCertificateByValue(searchValue: SearchCertificateByValueRequestDto): Promise<CertificateResponseDto[]> {
+    try {
+      const certificates = await this.certificateModel.find({
+        'certificateData.values.value': searchValue.searchValue,
+      });
+
+      if (!certificates || certificates.length === 0) {
+        throw new NotFoundException('Không tìm thấy chứng chỉ nào với giá trị này');
+      }
+
+      const plainObjects = certificates.map((cert) => cert.toObject());
+      return plainToInstance(CertificateResponseDto, plainObjects);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Lỗi khi tìm kiếm chứng chỉ: ${error.message}`);
     }
   }
 }

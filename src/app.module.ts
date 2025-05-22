@@ -12,6 +12,8 @@ import { GroupModule } from 'modules/group/group.module';
 import { TenantMiddleware } from 'modules/shared/middlewares/tenant.middleware';
 import { OrganizationModule } from 'modules/organization/organization.module';
 import { LogModule } from 'modules/log/log.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { VerifyModule } from 'modules/verify/verify.module';
 
 @Module({
   imports: [
@@ -22,9 +24,11 @@ import { LogModule } from 'modules/log/log.module';
     forwardRef(() => EmailModule),
     forwardRef(() => CertificateModule),
     BlockchainModule,
+    forwardRef(() => VerifyModule),
     forwardRef(() => TenantModule),
     forwardRef(() => GroupModule),
     forwardRef(() => LogModule),
+    ScheduleModule.forRoot(),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'images'),
       serveRoot: '/images',
@@ -38,6 +42,7 @@ export class AppModule implements NestModule {
       .forRoutes(
         { path: 'groups*', method: RequestMethod.ALL },
         { path: 'certificates*', method: RequestMethod.ALL },
+        { path: 'verify/search-by-value', method: RequestMethod.GET },
         { path: 'auth/organization/sign-in', method: RequestMethod.POST },
         { path: 'auth/get-otp-forgot-password', method: RequestMethod.POST },
         { path: 'auth/resend-otp-forgot-password', method: RequestMethod.POST },

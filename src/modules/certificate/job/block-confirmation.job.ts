@@ -18,7 +18,10 @@ export class BlockConfirmationJob {
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_1AM)
+  @Cron(CronExpression.EVERY_DAY_AT_1AM, {
+    name: 'blockConfirmation',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
   async handleBlockConfirmation() {
     try {
       const tenants = await this.tenantService.getAllTenants();
@@ -37,8 +40,6 @@ export class BlockConfirmationJob {
         }),
       );
     } catch (error) {
-      console.log('Error in block confirmation job', error.stack);
-
       await this.logService.createSystemLog(
         'System',
         ERole.SUPER_ADMIN,
@@ -53,54 +54,51 @@ export class BlockConfirmationJob {
   }
 
   private async processTenantCertificates(tenant: TenantResponseDto) {
-    const tenantDbName = `tenant_${tenant.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
+    try {
+      const tenantDbName = `tenant_${tenant.tenantName.replace(/\s+/g, '_').toLowerCase()}`;
+      const tenantDb = this.connection.useDb(tenantDbName, { useCache: true });
+      const certificateModel = tenantDb.model('Certificate', CertificateSchema);
 
-    const tenantDb = this.connection.useDb(tenantDbName, { useCache: true });
-    const certificateModel = tenantDb.model('Certificate', CertificateSchema);
+      const unconfirmedCertificates = await certificateModel.find({
+        $or: [{ blockId: 'pending' }, { blockId: '' }, { blockId: null }, { blockId: { $exists: false } }],
+      });
 
-    const unconfirmedCertificates = await certificateModel.find({
-      $or: [{ blockId: 'pending' }, { blockId: '' }, { blockId: null }, { blockId: { $exists: false } }],
-    });
+      for (const certificate of unconfirmedCertificates) {
+        try {
+          const txInfo = await this.blockfrostService.getTransaction(certificate.txHash);
 
-    console.log(`Found ${unconfirmedCertificates.length} unconfirmed certificates for tenant: ${tenant.tenantName}`);
+          if (txInfo && txInfo.block) {
+            certificate.blockId = txInfo.block;
+            await certificate.save();
 
-    for (const certificate of unconfirmedCertificates) {
-      try {
-        const txInfo = await this.blockfrostService.getTransaction(certificate.txHash);
-
-        if (txInfo && txInfo.block) {
-          certificate.blockId = txInfo.block;
-          await certificate.save();
-
+            await this.logService.createTenantLog(
+              tenantDbName,
+              'System',
+              ERole.SUPER_ADMIN,
+              'CERTIFICATE_BLOCK_CONFIRMED',
+              JSON.stringify({
+                certificateId: certificate._id,
+                txHash: certificate.txHash,
+                blockId: txInfo.block,
+              }),
+            );
+          }
+        } catch (error) {
           await this.logService.createTenantLog(
             tenantDbName,
             'System',
             ERole.SUPER_ADMIN,
-            'CERTIFICATE_BLOCK_CONFIRMED',
+            'CERTIFICATE_BLOCK_CONFIRMATION_ERROR',
             JSON.stringify({
               certificateId: certificate._id,
               txHash: certificate.txHash,
-              blockId: txInfo.block,
+              error: error.message,
             }),
           );
-        } else {
-          console.log(`Transaction ${certificate.txHash} not yet confirmed in a block`);
         }
-      } catch (error) {
-        console.log(`Error processing certificate ${certificate._id}: ${error.message}`);
-
-        await this.logService.createTenantLog(
-          tenantDbName,
-          'System',
-          ERole.SUPER_ADMIN,
-          'CERTIFICATE_BLOCK_CONFIRMATION_ERROR',
-          JSON.stringify({
-            certificateId: certificate._id,
-            txHash: certificate.txHash,
-            error: error.message,
-          }),
-        );
       }
+    } catch (error) {
+      throw error;
     }
   }
 }

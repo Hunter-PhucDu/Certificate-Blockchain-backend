@@ -8,21 +8,26 @@ import { Roles } from 'modules/shared/decorators/role.decorator';
 import { ERole } from 'modules/shared/enums/auth.enum';
 import { JwtAuthGuard } from 'modules/shared/gaurds/jwt.guard';
 import { RolesGuard } from 'modules/shared/gaurds/role.gaurd';
-import { AddTenantRequestDto, GetTenantsRequestDto, UpdateTenantRequestDto } from './dtos/request.dto';
-import { TenantResponseDto, TenantStatisticsResponseDto } from './dtos/response.dto';
+import {
+  AddTenantRequestDto,
+  GetSubdomainsRequestDto,
+  GetTenantsRequestDto,
+  UpdateTenantRequestDto,
+} from './dtos/request.dto';
+import { SubdomainResponseDto, TenantResponseDto, TenantStatisticsResponseDto } from './dtos/response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { TenantService } from './tenant.service';
 import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Controller('tenants')
 @ApiTags('Tenant')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class TenantController {
   constructor(private readonly tenantServitce: TenantService) {}
 
   @Post('')
   @Roles([ERole.SUPER_ADMIN])
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({
     summary: 'Add new tenant',
     description: 'Add new tenant',
@@ -39,6 +44,8 @@ export class TenantController {
 
   @Patch(':tenantId')
   @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({
     summary: 'Update tenant',
     description: 'Update tenant',
@@ -81,8 +88,22 @@ export class TenantController {
     return await this.tenantServitce.getUnusedTenants();
   }
 
+  @Get('subdomain')
+  @ApiOperation({
+    summary: 'Search subdomain organization',
+    description: 'Search subdomain with pagination by organization name or subdomain',
+  })
+  @ApiSuccessPaginationResponse({ dataType: SubdomainResponseDto })
+  async getSubdomains(
+    @Query() getSubdomainsRequestDto: GetSubdomainsRequestDto,
+  ): Promise<ListRecordSuccessResponseDto<SubdomainResponseDto>> {
+    return await this.tenantServitce.getSubdomains(getSubdomainsRequestDto);
+  }
+
   @Get(':tenantId')
   @Roles([ERole.ADMIN, ERole.SUPER_ADMIN])
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({
     summary: 'Get tenant details',
     description: 'Get tenant details',
@@ -94,6 +115,8 @@ export class TenantController {
 
   @Delete(':tenantId')
   @Roles([ERole.SUPER_ADMIN])
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({
     summary: 'Delete tenant',
     description: 'Delete tenant',
@@ -105,6 +128,8 @@ export class TenantController {
 
   @Get('dashboard/statistics')
   @Roles([ERole.SUPER_ADMIN, ERole.ADMIN])
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({
     summary: 'Get tenant statistics',
     description: 'Get statistics about tenants for dashboard',

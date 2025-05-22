@@ -93,7 +93,10 @@ export class BlockfrostService {
       });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || error.message);
+      if (error.response?.status === 404) {
+        throw new Error(`Transaction not found: ${txHash}`);
+      }
+      throw new Error(`Error getting transaction: ${error.response?.data?.message || error.message}`);
     }
   }
 
@@ -104,9 +107,13 @@ export class BlockfrostService {
         headers: { project_id: this.apiKey },
       });
 
+      if (!response.data || response.data.length === 0) {
+        return [];
+      }
+
       return response.data;
     } catch (error: any) {
-      if (error.response && error.response.status === 404) {
+      if (error.response?.status === 404) {
         return [];
       }
       throw new Error(`Error fetching metadata: ${error.response?.data?.message || error.message}`);

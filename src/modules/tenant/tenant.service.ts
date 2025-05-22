@@ -2,8 +2,13 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { TenantModel } from 'modules/shared/models/tenant.model';
 import { OrganizationModel } from 'modules/shared/models/organization.model';
-import { AddTenantRequestDto, GetTenantsRequestDto, UpdateTenantRequestDto } from './dtos/request.dto';
-import { TenantResponseDto, TenantStatisticsResponseDto } from './dtos/response.dto';
+import {
+  AddTenantRequestDto,
+  GetSubdomainsRequestDto,
+  GetTenantsRequestDto,
+  UpdateTenantRequestDto,
+} from './dtos/request.dto';
+import { SubdomainResponseDto, TenantResponseDto, TenantStatisticsResponseDto } from './dtos/response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { getPagination } from 'modules/shared/utils/get-pagination';
@@ -198,6 +203,40 @@ export class TenantService {
     } catch (error) {
       throw new BadRequestException(`Error getting all tenants: ${error.message}`);
     }
+  }
+
+  async getSubdomains(
+    paginationDto: GetSubdomainsRequestDto,
+  ): Promise<ListRecordSuccessResponseDto<SubdomainResponseDto>> {
+    const { page, size, search } = paginationDto;
+    const skip = (page - 1) * size;
+
+    const searchCondition = search
+      ? {
+          $or: [
+            { organizationName: { $regex: new RegExp(search, 'i') } },
+            { subdomain: { $regex: new RegExp(search, 'i') } },
+          ],
+        }
+      : {};
+
+    const [tenants, totalItem] = await Promise.all([
+      this.tenantModel.model.find(searchCondition).skip(skip).limit(size).exec(),
+      this.tenantModel.model.countDocuments(searchCondition),
+    ]);
+
+    const subdomains = tenants.map((tenant) => ({
+      organizationName: tenant.organizationName,
+      subdomain: `${tenant.subdomain}.${process.env.BASE_URL}`,
+    }));
+
+    const metadata: MetadataResponseDto = getPagination(size, page, totalItem);
+    const tenantResponseDtos: TenantResponseDto[] = plainToInstance(TenantResponseDto, subdomains);
+
+    return {
+      metadata,
+      data: tenantResponseDtos,
+    };
   }
 
   async getUnusedTenants(): Promise<TenantResponseDto[]> {
