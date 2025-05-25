@@ -5,9 +5,10 @@ import { GroupService } from './group.service';
 import { AuthModule } from '../auth/auth.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { LogModule } from 'modules/log/log.module';
+import { CertificateModule } from 'modules/certificate/certificate.module';
 
 @Module({
-  imports: [SharedModule, AuthModule, TenantModule, LogModule],
+  imports: [SharedModule, AuthModule, TenantModule, LogModule, CertificateModule],
   controllers: [GroupController],
   providers: [
     {

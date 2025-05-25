@@ -12,6 +12,7 @@ import { getPagination } from 'modules/shared/utils/get-pagination';
 import { MetadataResponseDto } from 'modules/shared/dtos/metadata-response.dto';
 import { ListRecordSuccessResponseDto } from 'modules/shared/dtos/list-record-success-response.dto';
 import { LogService } from '../log/log.service';
+import { CertificateService } from 'modules/certificate/certificate.service';
 import { IJwtPayload } from 'modules/shared/interfaces/auth.interface';
 
 @Injectable()
@@ -27,6 +28,7 @@ export class GroupService {
   constructor(
     @Inject(REQUEST) private readonly request: Request,
     private readonly logService: LogService,
+    private readonly certificateService: CertificateService,
   ) {}
 
   async addGroup(user: IJwtPayload, addGroupDto: AddGroupRequestDto): Promise<GroupResponseDto> {
@@ -34,9 +36,24 @@ export class GroupService {
       let path: Types.ObjectId[] = [];
       let level = 0;
 
-      const existingGroup = await this.groupModel.findOne({ groupName: addGroupDto.groupName });
-      if (existingGroup) {
-        throw new BadRequestException('Group with this name already exists');
+      if (addGroupDto.parentId) {
+        const existingGroup = await this.groupModel.findOne({
+          parentId: new Types.ObjectId(addGroupDto.parentId),
+          groupName: addGroupDto.groupName,
+        });
+
+        if (existingGroup) {
+          throw new BadRequestException('A group with this name already exists in this parent folder');
+        }
+      } else {
+        const existingGroup = await this.groupModel.findOne({
+          parentId: null,
+          groupName: addGroupDto.groupName,
+        });
+
+        if (existingGroup) {
+          throw new BadRequestException('A root group with this name already exists');
+        }
       }
 
       if (addGroupDto.parentId) {
@@ -170,9 +187,12 @@ export class GroupService {
       }
 
       const hasChildren = await this.groupModel.exists({ parentId: id });
+
       if (hasChildren) {
         throw new BadRequestException('Cannot delete a group with children');
       }
+
+      const deletedCertificatesInfo = await this.certificateService.deleteCertificatesByGroupId(id);
 
       const tenantDbName = this.request['tenantDbName'];
       await this.logService.createTenantLog(
@@ -185,6 +205,9 @@ export class GroupService {
           groupName: group.groupName,
           parentId: group.parentId,
           level: group.level,
+          certificatesDeleted: deletedCertificatesInfo.length > 0,
+          deletedCertificatesCount: deletedCertificatesInfo.length,
+          deletedCertificatesInfo: deletedCertificatesInfo,
         }),
       );
 

@@ -351,7 +351,7 @@ export class CertificateService {
       });
 
       if (!certificates || certificates.length === 0) {
-        throw new NotFoundException('Không tìm thấy chứng chỉ nào với giá trị này');
+        throw new NotFoundException('No certificates found with the given value');
       }
 
       const plainObjects = certificates.map((cert) => cert.toObject());
@@ -360,7 +360,35 @@ export class CertificateService {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new BadRequestException(`Lỗi khi tìm kiếm chứng chỉ: ${error.message}`);
+      throw new BadRequestException(`Error: ${error.message}`);
+    }
+  }
+  async deleteCertificatesByGroupId(groupId: string): Promise<string[]> {
+    try {
+      const certificates = await this.certificateModel.find(
+        { groupId },
+        { _id: 1, txHash: 1, certificateIndex: 1, certificateType: 1 },
+      );
+
+      const certificateInfos = certificates.map((cert) => {
+        let infoStr = `ID: ${cert._id.toString()}, TxHash: ${cert.txHash}`;
+
+        if (cert.certificateIndex !== undefined) {
+          infoStr += `, Index: ${cert.certificateIndex}`;
+        }
+
+        if (cert.certificateType) {
+          infoStr += `, Type: ${cert.certificateType}`;
+        }
+
+        return infoStr;
+      });
+
+      await this.certificateModel.deleteMany({ groupId });
+
+      return certificateInfos;
+    } catch (error) {
+      throw new BadRequestException(`Error deleting certificates for group: ${error.message}`);
     }
   }
 }
