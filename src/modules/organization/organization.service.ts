@@ -157,7 +157,7 @@ export class OrganizationService {
           try {
             unlinkSync(join(process.cwd(), 'images', organization.logo));
           } catch (error) {
-            console.error('Error deleting old logo:', error);
+            throw new NotFoundException('Error deleting old logo:', error);
           }
         }
         logoPath = await this.handleLogoUpload(logo);
@@ -222,7 +222,7 @@ export class OrganizationService {
         try {
           unlinkSync(join(process.cwd(), 'images', organization.logo));
         } catch (error) {
-          console.error('Error deleting logo:', error);
+          throw new NotFoundException('Error deleting logo:', error);
         }
       }
 

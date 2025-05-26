@@ -44,7 +44,6 @@ export class LogService {
       decrypted += decipher.final('utf8');
       return decrypted;
     } catch (error) {
-      console.error('Error decrypting payload:', error);
       return encryptedText;
     }
   }

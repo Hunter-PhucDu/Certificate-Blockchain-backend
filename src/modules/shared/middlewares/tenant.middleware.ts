@@ -33,7 +33,6 @@ export class TenantMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
-      console.error('TenantMiddleware error:', error);
       throw new NotFoundException(`Error in TenantMiddleware: ${error.message}`);
     }
   }
@@ -50,7 +49,7 @@ export class TenantMiddleware implements NestMiddleware {
           return parts[0];
         }
       } catch (err) {
-        console.error('Error parsing origin:', err);
+        throw new NotFoundException('Error parsing origin:', err);
       }
     }
 
@@ -65,7 +64,7 @@ export class TenantMiddleware implements NestMiddleware {
           return parts[0];
         }
       } catch (err) {
-        console.error('Error parsing referer:', err);
+        throw new NotFoundException('Error parsing referer:', err);
       }
     }
 

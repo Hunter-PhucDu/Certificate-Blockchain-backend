@@ -177,6 +177,11 @@ export class CertificateService {
             $or: [
               { certificateType: { $regex: new RegExp(search, 'i') } },
               { txHash: { $regex: new RegExp(search, 'i') } },
+              {
+                'certificateData.values.value': {
+                  $regex: new RegExp(search, 'i'),
+                },
+              },
             ],
           }
         : {};
